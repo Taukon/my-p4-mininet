@@ -1,0 +1,3 @@
+[submodule "p4mininet/p4runtime/p4runtime-shell"]
+	path = p4mininet/p4runtime/p4runtime-shell
+	url = https://github.com/p4lang/p4runtime-shell

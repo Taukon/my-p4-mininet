@@ -1,0 +1,11 @@
+lib/__pycache__
+p4runtime/__pycache__
+utils/__pycache__
+log/*
+p4src/*
+!p4src/makefile
+!p4src/*.p4
+
+nodes.json
+*_switch_ip_list.json
+*_network.py

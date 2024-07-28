@@ -1,0 +1,8 @@
+{
+    "python.autoComplete.extraPaths": [
+        "./p4mininet/p4runtime/p4runtime-shell",
+    ],
+    "python.analysis.extraPaths": [
+        "./p4mininet/p4runtime/p4runtime-shell",
+    ]
+}
