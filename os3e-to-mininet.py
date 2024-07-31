@@ -1,5 +1,6 @@
 import json
 import math
+from sys import argv
 
 
 def load_latlong():
@@ -42,6 +43,13 @@ name = "os3e"
 
 ip_host_base = 0
 ip_switch_base = 7
+
+# Enable ssh access for host nodes
+enable_ssh = 0
+
+for i in range(len(argv)):
+    if argv[i] == '--ssh':
+        enable_ssh = 1
 
 # Define string fragments for output later on
 outputstring_1 = '''#!/usr/bin/python
@@ -327,6 +335,58 @@ for i, v in enumerate(links):
 outputstring_to_be_exported += tempstring4
 outputstring_to_be_exported += outputstring_2e
 outputstring_to_be_exported += tempstring6
+
+if enable_ssh:
+
+    ssh_string = '\n'
+
+    # Create switch for ssh
+    temp1 =  '    '
+    temp1 += 'ssh_switch'
+    temp1 += " = net.addSwitch('tmp1')\n"
+    ssh_string += temp1
+
+    for i, v in enumerate(nodes):
+        node_name = v['node']
+
+        temp2 =  '    net.addLink('
+        temp2 += 'ssh_switch, '
+        temp2 += node_name
+        temp2 += "_host, "
+        temp2 += "params1={'ip': '192."
+        if i != 0 and i % 254 == 0:
+            ip_host_base = ip_host_base + 1
+        temp2 += str(ip_host_base)
+        temp2 += '.'
+        temp2 += str(i % 254 + 1)
+        temp2 += '.1'
+        temp2 += "/24'}, "
+        temp2 += "params2={'ip': '192."
+        temp2 += str(ip_host_base)
+        temp2 += '.'
+        temp2 += str(i % 254 + 1)
+        temp2 += '.2'
+        temp2 += "/24'}, "
+        temp2 += "cls=TCLink)\n"
+        ssh_string += temp2
+
+        # temp3 =  '    '
+        # temp3 += f"{id_node_name_dict[str(i)]}_host"
+        # temp3 += ".cmd( '/usr/sbin/sshd -D -o UseDNS=no -u0 &' )\n"
+        # ssh_string += temp3
+
+    temp3 = '\n'
+    temp3 += '    '
+    temp3 += 'for host in net.hosts:\n'
+    temp3 += '    '
+    temp3 += '    '
+    temp3 += "host.cmd( '/usr/sbin/sshd -D -o UseDNS=no -u0 &' )\n"
+    ssh_string += temp3
+
+    outputstring_ssh='''    info( '\033[1;36m*** Add ssh links\033[0m\\n')\n'''
+    outputstring_to_be_exported += outputstring_ssh
+    outputstring_to_be_exported += ssh_string
+
 outputstring_to_be_exported += outputstring_3a
 outputstring_to_be_exported += outputstring_3b
 outputstring_to_be_exported += tempstring7
