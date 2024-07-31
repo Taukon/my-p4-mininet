@@ -315,7 +315,8 @@ def init_routing_table(switch_name: str, nodes: dict):
             
             # logger.debug(x.match['hdr.ipv4.dstAddr'].lpm.value)
             if x.action.action_name == 'MyIngress.ipv4_forward_to_frr':
-                ipv4_local_entries.append(x.match['hdr.ipv4.dstAddr'].lpm.value)
+                # ipv4_local_entries.append(x.match['hdr.ipv4.dstAddr'].lpm.value)
+                ipv4_local_entries.append(x.msg().match[0].lpm.value)
 
 
         intfs = get_ip_intfs(ipr, nodes[switch_name])
@@ -365,20 +366,37 @@ def update_routing_table(switch_name: str, nodes: dict):
         ipv4_entries = {}
         for x in sh.TableEntry('MyIngress.ipv4_forward_table').read():
             
-            if x.action.action_name == 'MyIngress.ipv4_forward':
-                ipv4_entries[x.match['hdr.ipv4.dstAddr'].lpm.value] = {
-                    'port': x.action['port'].value,
-                    'dstAddr': x.action['dstAddr'].value,
-                    'srcAddr': x.action['srcAddr'].value,
+            if  hasattr(x.action, 'action_name') and x.action.action_name == 'MyIngress.ipv4_forward':
+                # ipv4_entries[x.match['hdr.ipv4.dstAddr'].lpm.value] = {
+                #     'port': x.action['port'].value,
+                #     'dstAddr': x.action['dstAddr'].value,
+                #     'srcAddr': x.action['srcAddr'].value,
+                #     'is_set': False
+                # }
+
+                params = x.action.msg().params
+                ipv4_entries[x.msg().match[0].lpm.value] = {
+                    'port': params[0].value,
+                    'srcAddr': params[1].value,
+                    'dstAddr': params[2].value,
                     'is_set': False
                 }
 
+
         sr_nexthop_entries = {}
         for x in sh.TableEntry('MyIngress.srcRoute_nexthop_table').read():
-            sr_nexthop_entries[x.match['hdr.srcRoutes[0].swid'].exact.value] = {
-                'port': x.action['port'].value,
-                'dstAddr': x.action['dstAddr'].value,
-                'srcAddr': x.action['srcAddr'].value,
+            # sr_nexthop_entries[x.match['hdr.srcRoutes[0].swid'].exact.value] = {
+            #     'port': x.action['port'].value,
+            #     'dstAddr': x.action['dstAddr'].value,
+            #     'srcAddr': x.action['srcAddr'].value,
+            #     'is_set': False
+            # }
+
+            params = x.action.msg().params
+            sr_nexthop_entries[x.msg().match[0].exact.value] = {
+                'port': params[0].value,
+                'srcAddr': params[1].value,
+                'dstAddr': params[2].value,
                 'is_set': False
             }
 
@@ -413,18 +431,24 @@ def update_routing_table(switch_name: str, nodes: dict):
 
 
         for x in sh.TableEntry('MyIngress.ipv4_forward_table').read():
-            
+
             if x.action.action_name == 'MyIngress.ipv4_forward' and \
-                x.match['hdr.ipv4.dstAddr'].lpm.value in ipv4_entries:
-                ipv4_dst = x.match['hdr.ipv4.dstAddr'].lpm.value
+                x.msg().match[0].lpm.value  in ipv4_entries:
+                ipv4_dst = x.msg().match[0].lpm.value
+                # x.match['hdr.ipv4.dstAddr'].lpm.value in ipv4_entries:
+                # ipv4_dst = x.match['hdr.ipv4.dstAddr'].lpm.value
+
                 if ipv4_entries[ipv4_dst]['is_set'] == False:
                     x.delete()
                     logger.debug(f"ipv4_forward: delete {ipv4_dst}")
                     change_flag = True
         
         for x in sh.TableEntry('MyIngress.srcRoute_nexthop_table').read():
-            if x.match['hdr.srcRoutes[0].swid'].exact.value in sr_nexthop_entries:
-                swid_bytes = x.match['hdr.srcRoutes[0].swid'].exact.value
+            if x.msg().match[0].exact.value in sr_nexthop_entries:
+                swid_bytes = x.msg().match[0].exact.value
+            # if x.match['hdr.srcRoutes[0].swid'].exact.value in sr_nexthop_entries:
+                # swid_bytes = x.match['hdr.srcRoutes[0].swid'].exact.value
+
                 if sr_nexthop_entries[swid_bytes]['is_set'] == False:
                     x.delete()
                     logger.debug(f"srcRoute_nexthop: delete {swid_bytes}")
@@ -478,8 +502,8 @@ def cmd_p4runtime_sh(switch_name: str, nodes: dict):
 
             sys.stdout.flush()
 
-        except:
-            logger.error("error")
+        except Exception as e:
+            logger.error(e)
             break
 
     sh.teardown()
