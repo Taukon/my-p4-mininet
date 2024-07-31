@@ -674,7 +674,8 @@ for i in range(0, len(id_node_name_dict)):
     address_list[f"s{i+1}"] = address_list[f"s{i+1}"] | {
         f"lo": {
             "ip": f"10.0.{ip_switch_base}.{(i % 254) + 1}/32",
-            "bw": real_bandwidth
+            "bw": real_bandwidth,
+            "name": id_node_name_dict[str(i)]
         }    
     }
 

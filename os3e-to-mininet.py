@@ -398,7 +398,8 @@ outputstring_to_be_exported += tempstringController
 for i in range(0, len(nodes)):
     address_list[f"s{i+1}"] = address_list[f"s{i+1}"] | {
         f"lo": {
-            "ip": f"10.0.{ip_switch_base}.{(i % 254) + 1}/32"
+            "ip": f"10.0.{ip_switch_base}.{(i % 254) + 1}/32",
+            "name": nodes[i]["node"]
         }    
     }
 
