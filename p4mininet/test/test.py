@@ -19,91 +19,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from lib.node import P4SimpleSwitch
 from lib.json import write_nodes_json
 
-"""
-mininet> h2 python3 ip_recieve.py
-trace: sniffing on h2-eth0
-timestamp: sniffing on h2-eth0
-got a trace packet
-delta: 0.011901378631591797
-swid: 167773954 | 10.0.7.2
-swid: 167773953 | 10.0.7.1
-ACK sent
------ mri swtraces len: 2 | count: 2 |  dst: 96:41:b1:6e:3d:81 | src: 7e:8f:bf:d2:4c:57
-got a timestamp packet
------ TM delta: 0.011799335479736328 | Average Delta: 0.011799335479736328 | count: 1 -----
-got a timestamp packet
------ TM delta: 0.010381460189819336 | Average Delta: 0.011090397834777832 | count: 2 -----
-got a timestamp packet
------ TM delta: 0.010709285736083984 | Average Delta: 0.010963360468546549 | count: 3 -----
-got a timestamp packet
------ TM delta: 0.010221242904663086 | Average Delta: 0.010777831077575684 | count: 4 -----
-got a timestamp packet
------ TM delta: 0.011718511581420898 | Average Delta: 0.010965967178344726 | count: 5 -----
-^Cminineth2 python3 sr_recieve.py
-mri: sniffing on h2-eth0
-sr: sniffing on h2-eth0
-got a mri packet
-mri delta: 0.021180391311645508
-swid: 167773954 | 10.0.7.2
-swid: 167773953 | 10.0.7.1
-ACK sent
------ mri swtraces len: 2 | count: 2 |  dst: ff:ff:ff:ff:ff:ff | src: 7e:8f:bf:d2:4c:57
-got a mri packet
-mri delta: 0.1987466812133789
------ mri swtraces len: 5 | count: 5 |  dst: ff:ff:ff:ff:ff:ff | src: 7e:8f:bf:d2:4c:57
-got a mri packet
-mri delta: 0.1994767189025879
------ mri swtraces len: 7 | count: 7 |  dst: ff:ff:ff:ff:ff:ff | src: 7e:8f:bf:d2:4c:57
-got a sr packet
------ SR delta: 0.0267183780670166 | Average Delta: 0.0267183780670166 | count: 1 -----
-got a sr packet
------ SR delta: 0.02692699432373047 | Average Delta: 0.026822686195373535 | count: 2 -----
-got a sr packet
------ SR delta: 0.025928020477294922 | Average Delta: 0.026524464289347332 | count: 3 -----
-got a sr packet
------ SR delta: 0.02579808235168457 | Average Delta: 0.02634286880493164 | count: 4 -----
-got a sr packet
------ SR delta: 0.024692773818969727 | Average Delta: 0.02601284980773926 | count: 5 -----
-"""
-
-"""
-mininet> h2 python3 ip_recieve.py
-trace: sniffing on h2-eth0
-timestamp: sniffing on h2-eth0
-got a trace packet
-delta: 0.003827810287475586
-swid: 167773953 | 10.0.7.1
-ACK sent
------ mri swtraces len: 1 | count: 1 |  dst: 1a:3c:97:d8:75:3f | src: 96:a4:f1:e3:67:21
-got a timestamp packet
------ TM delta: 0.002531766891479492 | Average Delta: 0.002531766891479492 | count: 1 -----
-got a timestamp packet
------ TM delta: 0.002786874771118164 | Average Delta: 0.002659320831298828 | count: 2 -----
-got a timestamp packet
------ TM delta: 0.003312349319458008 | Average Delta: 0.0028769969940185547 | count: 3 -----
-got a timestamp packet
------ TM delta: 0.0029189586639404297 | Average Delta: 0.0028874874114990234 | count: 4 -----
-got a timestamp packet
------ TM delta: 0.002931833267211914 | Average Delta: 0.0028963565826416017 | count: 5 -----
-^Cmininet> h2 python3 sr_recieve.py
-mri: sniffing on h2-eth0
-sr: sniffing on h2-eth0
-got a mri packet
-mri delta: 0.005194664001464844
-swid: 167773953 | 10.0.7.1
-ACK sent
------ mri swtraces len: 1 | count: 1 |  dst: ff:ff:ff:ff:ff:ff | src: 96:a4:f1:e3:67:21
-got a sr packet
------ SR delta: 0.004297733306884766 | Average Delta: 0.004297733306884766 | count: 1 -----
-got a sr packet
------ SR delta: 0.003423929214477539 | Average Delta: 0.0038608312606811523 | count: 2 -----
-got a sr packet
------ SR delta: 0.003672361373901367 | Average Delta: 0.0037980079650878906 | count: 3 -----
-got a sr packet
------ SR delta: 0.0029485225677490234 | Average Delta: 0.003585636615753174 | count: 4 -----
-got a sr packet
------ SR delta: 0.003933906555175781 | Average Delta: 0.0036552906036376952 | count: 5 -----
-"""
 
 def myNetwork():
 
@@ -147,7 +62,7 @@ def myNetwork():
 
 
     s1 = net.addSwitch('s1', cls=P4SimpleSwitch)
-    s2 = net.addSwitch('s1', cls=P4SimpleSwitch)
+    # s2 = net.addSwitch('s1', cls=P4SimpleSwitch)
 
     for i in range(1, host_count+1):
         host = net.addHost(f'h{i}', cls=Host, ip=None)
