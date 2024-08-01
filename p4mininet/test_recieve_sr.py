@@ -70,16 +70,25 @@ def send_ack_pkt(iface, pkt, delta: float):
 
 
 def handle_pkt_mri(pkt):
+    global total_delta
+    global delta_count
 
-    print("got a mri packet")
+    # print("got a mri packet")
     sys.stdout.flush()
 
     timestamp = struct.unpack('!d', pkt[Raw].load)[0]
     delta = time.time() - timestamp
-    print(f"mri delta: {delta}")
+    # print(f"mri delta: {delta}")
 
+    if 'total_delta' not in globals() or 'delta_count' not in globals():
+        total_delta = 0
+        delta_count = 0
+
+    # print(f"----- mri swtraces len: {len(pkt[MRI].swtraces)} | count: {pkt[MRI].count} |  dst: {pkt[Ether].dst} | src: {pkt[Ether].src}")
+    total_delta += delta
+    delta_count += 1
+    print(f"MRI delta: {delta} | Average Delta: {total_delta / delta_count} | count: {delta_count}")
     send_ack_pkt(iface, pkt, delta)
-    print(f"----- mri swtraces len: {len(pkt[MRI].swtraces)} | count: {pkt[MRI].count} |  dst: {pkt[Ether].dst} | src: {pkt[Ether].src}")
 
 
 def receive_mri():
