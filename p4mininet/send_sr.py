@@ -104,11 +104,12 @@ def send_sr(trace_pkt):
         dst_mac = trace_pkt[Ether].src
         sr_pkt = Ether(src=get_if_hwaddr(iface), dst=dst_mac)
         for i in range(0, len(trace_pkt[MRI].swtraces)):
+            back_i = (len(trace_pkt[MRI].swtraces) - 1) - i
             try:
                 if(i == len(trace_pkt[MRI].swtraces) - 1):
-                    sr_pkt = sr_pkt / SourceRoute(bos=1, swid=trace_pkt[MRI].swtraces[i].swid)
+                    sr_pkt = sr_pkt / SourceRoute(bos=1, swid=trace_pkt[MRI].swtraces[back_i].swid)
                 else:
-                    sr_pkt = sr_pkt / SourceRoute(bos=0, swid=trace_pkt[MRI].swtraces[i].swid)
+                    sr_pkt = sr_pkt / SourceRoute(bos=0, swid=trace_pkt[MRI].swtraces[back_i].swid)
             
             except ValueError:
                 pass
