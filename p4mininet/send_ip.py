@@ -14,12 +14,17 @@ import struct
 import ipaddress
 
 from utils import info
+from lib.json import load_switch_ip_list
 
 
 iface = info.send_iface
 # dst_mac = info.send_dst_mac
 dst_mac = info.get_dst_mac(iface)
 addr = info.send_addr
+
+class SourceRoute(Packet):
+   fields_desc = [ BitField("bos", 0, 8),
+                   IntField("swid", 0)]
 
 class SwitchTrace(Packet):
     fields_desc = [ IntField("swid", 0)]
@@ -33,6 +38,9 @@ class MRI(Packet):
                                    SwitchTrace,
                                    count_from=lambda pkt:(pkt.count*1))]
 
+bind_layers(Ether, SourceRoute, type=0x1234)
+bind_layers(SourceRoute, SourceRoute, bos=0)
+bind_layers(SourceRoute, IP, bos=1)
 bind_layers(UDP, MRI, dport=5432)
 bind_layers(UDP, MRI, dport=12345)
 
@@ -69,6 +77,59 @@ def send_timestamp():
         print (f"{i} Send Time: {time.time()}")
         sleep(1)
 
+
+def get_city_trace(trace_pkt):
+    if len(sys.argv) == 3:
+        try:
+
+            switch_ip_list_path = sys.argv[2]
+            switch_ip_list = load_switch_ip_list(switch_ip_list_path)
+
+            print("----- Switch IP List -----")
+            for i in range(0, len(trace_pkt[MRI].swtraces)): 
+                ip_bytes = (trace_pkt[MRI].swtraces[i].swid).to_bytes(4, byteorder='big')
+                ip_str = socket.inet_ntoa(ip_bytes)
+
+                for k, v in switch_ip_list.items():
+                    if f"{ip_str}/32" == v["lo"]["ip"]:
+                        print(f"{k} | {ip_str} | {v['lo']['name']}")
+                        break
+
+        except Exception as e:
+            print(e)
+            return
+    else:
+        print("No switch ip list path")
+
+
+def send_sr(trace_pkt):
+    iface_tx = iface
+    s = conf.L2socket(iface=iface_tx)
+
+    for k in range(0, int(sys.argv[1])):
+
+        dst_mac = trace_pkt[Ether].src
+        sr_pkt = Ether(src=get_if_hwaddr(iface), dst=dst_mac)
+        for i in range(0, len(trace_pkt[MRI].swtraces)):
+            back_i = (len(trace_pkt[MRI].swtraces) - 1) - i
+            try:
+                if(i == len(trace_pkt[MRI].swtraces) - 1):
+                    sr_pkt = sr_pkt / SourceRoute(bos=1, swid=trace_pkt[MRI].swtraces[back_i].swid)
+                else:
+                    sr_pkt = sr_pkt / SourceRoute(bos=0, swid=trace_pkt[MRI].swtraces[back_i].swid)
+            
+            except ValueError:
+                pass
+
+        sr_pkt = sr_pkt / \
+            IP(dst=trace_pkt[IP].src, proto=17) / \
+                UDP(dport=6543, sport=3456) / \
+                    struct.pack('!d', time.time())
+        
+        # sr_pkt.show2()
+        s.send(sr_pkt)
+        print (f"SR {k} Send Time: {time.time()}")
+        sleep(1)
 
 # def handle_pkt_trace(ack):
 #     global total_delta
@@ -121,6 +182,8 @@ def handle_pkt_trace(ack):
     print("----- waiting for 2 seconds -----")
     sleep(2)
     send_timestamp()
+    # send_sr(ack)
+    get_city_trace(ack)
 
 
 def receive():    

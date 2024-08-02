@@ -221,7 +221,7 @@ control MyIngress(inout headers hdr,
             forward_from_frr;
             frr_forward_no_action;
         }
-        size = 16;
+        size = 256;
         default_action = frr_forward_no_action();
     }
 
@@ -239,7 +239,7 @@ control MyIngress(inout headers hdr,
             forward_to_frr;
             NoAction;
         }
-        size = 16;
+        size = 256;
         default_action = NoAction();
     }
 

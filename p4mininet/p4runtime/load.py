@@ -60,6 +60,7 @@ def cmd_p4runtime_sh(switch_name: str, nodes: dict):
             mu.add(int(port), 1)
 
     mu.insert()
+    logger.debug("complete multicast entry")
 
 # --------------------- validate switch.json!!! ---------------------
     if p4file_path == './p4src/switch.json':

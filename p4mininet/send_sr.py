@@ -14,6 +14,7 @@ import struct
 import ipaddress
 
 from utils import info
+from lib.json import load_switch_ip_list
 
 iface = info.send_iface
 dst_mac = info.send_dst_mac
@@ -70,6 +71,30 @@ def send_mri():
     print (f"MRI Send Time: {time.time()}")
 
 
+def get_city_trace(trace_pkt):
+    if len(sys.argv) == 3:
+        try:
+
+            switch_ip_list_path = sys.argv[2]
+            switch_ip_list = load_switch_ip_list(switch_ip_list_path)
+
+            print("----- Switch IP List -----")
+            for i in range(0, len(trace_pkt[MRI].swtraces)): 
+                ip_bytes = (trace_pkt[MRI].swtraces[i].swid).to_bytes(4, byteorder='big')
+                ip_str = socket.inet_ntoa(ip_bytes)
+
+                for k, v in switch_ip_list.items():
+                    if f"{ip_str}/32" == v["lo"]["ip"]:
+                        print(f"{k} | {ip_str} | {v['lo']['name']}")
+                        break
+
+        except Exception as e:
+            print(e)
+            return
+    else:
+        print("No switch ip list path")
+
+
 def send_sr(trace_pkt):
     iface_tx = iface
     s = conf.L2socket(iface=iface_tx)
@@ -79,11 +104,12 @@ def send_sr(trace_pkt):
         dst_mac = trace_pkt[Ether].src
         sr_pkt = Ether(src=get_if_hwaddr(iface), dst=dst_mac)
         for i in range(0, len(trace_pkt[MRI].swtraces)):
+            back_i = (len(trace_pkt[MRI].swtraces) - 1) - i
             try:
                 if(i == len(trace_pkt[MRI].swtraces) - 1):
-                    sr_pkt = sr_pkt / SourceRoute(bos=1, swid=trace_pkt[MRI].swtraces[i].swid)
+                    sr_pkt = sr_pkt / SourceRoute(bos=1, swid=trace_pkt[MRI].swtraces[back_i].swid)
                 else:
-                    sr_pkt = sr_pkt / SourceRoute(bos=0, swid=trace_pkt[MRI].swtraces[i].swid)
+                    sr_pkt = sr_pkt / SourceRoute(bos=0, swid=trace_pkt[MRI].swtraces[back_i].swid)
             
             except ValueError:
                 pass
@@ -126,6 +152,7 @@ def handle_pkt_sr_trace(ack):
     print("----- waiting for 2 seconds -----")
     sleep(2)
     send_sr(ack)
+    get_city_trace(ack)
 
 
 def receive_sr_trace():    
