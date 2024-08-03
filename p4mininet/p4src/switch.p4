@@ -2,11 +2,12 @@
 #include <core.p4>
 #include <v1model.p4>
 
-const bit<8>  UDP_PROTOCOL = 0x11;
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_SRCROUTING = 0x1234;
-const bit<16> TYPE_INT = 0x10E1;
-const bit<16> TYPE_TRACE = 0x1538; // 5432
+
+const bit<8>  UDP_PROTOCOL = 0x11;
+const bit<8>  INT_PROTOCOL = 0xFD;
+const bit<8>  TRACE_PROTOCOL = 0xFE;
 
 // #define MAX_HOPS 10
 #define MAX_HOPS 9
@@ -145,17 +146,15 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ipv4);
         transition select(hdr.ipv4.protocol) {
             UDP_PROTOCOL: parse_udp;
+            INT_PROTOCOL: parse_mri;
+            TRACE_PROTOCOL: parse_mri;
             default: accept;
         }
     }
-  
+
    state parse_udp {
         packet.extract(hdr.udp);
-        transition select(hdr.udp.dstPort) {
-            TYPE_INT: parse_mri;      //port 4321
-            TYPE_TRACE: parse_mri;      //port 5342
-            default: accept;
-        }       
+        transition accept;
     }
  
    state parse_mri {
@@ -450,8 +449,8 @@ control MyIngress(inout headers hdr,
         }
 
         // --------------------Multi-Hop Route Inspection--------------------
-        if(hdr.mri.isValid() && hdr.udp.isValid() && hdr.udp.dstPort == TYPE_INT){
-            if(hdr.ipv4.isValid() && hdr.ipv4.ttl > 0){
+        if(hdr.mri.isValid() && hdr.ipv4.isValid() && hdr.ipv4.protocol == INT_PROTOCOL){
+            if(hdr.ipv4.ttl > 0){
                 hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
             }else{
                 drop();
@@ -470,7 +469,7 @@ control MyIngress(inout headers hdr,
         }
 
         // --------------------For TRACE OSPF Route--------------------
-        if(hdr.mri.isValid() && hdr.udp.isValid() && hdr.udp.dstPort == TYPE_TRACE){
+        if(hdr.mri.isValid() && hdr.ipv4.isValid() && hdr.ipv4.protocol == TRACE_PROTOCOL){
             meta.clone_mri_metadata.is_loop = 0;
             meta.clone_mri_metadata.is_clone = 0;
         }

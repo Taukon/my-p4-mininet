@@ -17,6 +17,9 @@ from utils import info
 
 iface = info.recieve_iface
 
+INT_PROTOCOL = 0xfd
+TRACE_PROTOCOL = 0xfe
+
 class SourceRoute(Packet):
    fields_desc = [ BitField("bos", 0, 8),
                    IntField("swid", 0)]
@@ -36,7 +39,7 @@ class MRI(Packet):
 bind_layers(Ether, SourceRoute, type=0x1234)
 bind_layers(SourceRoute, SourceRoute, bos=0)
 bind_layers(SourceRoute, IP, bos=1)
-bind_layers(UDP, MRI, dport=4321)
+bind_layers(IP, MRI, proto=INT_PROTOCOL)
 
 
 def send_ack_pkt(iface, pkt, delta: float):
@@ -127,12 +130,12 @@ def handle_pkt_sr(pkt):
 def receive_mri():
     print("mri: sniffing on %s" % iface)
     sys.stdout.flush()
-    sniff(filter="udp and port 4321", iface = iface, prn = lambda x: handle_pkt_mri(x))
+    sniff(filter=f"ip and proto {INT_PROTOCOL}", iface = iface, prn = lambda x: handle_pkt_mri(x))
 
 def receive_sr():
     print("sr: sniffing on %s" % iface)
     sys.stdout.flush()
-    sniff(filter="udp and port 6543", iface = iface, prn = lambda x: handle_pkt_sr(x))
+    sniff(filter="udp and port 1234", iface = iface, prn = lambda x: handle_pkt_sr(x))
 
 if __name__ == '__main__':
     Process(target = receive_sr).start()

@@ -16,6 +16,9 @@ from utils import info
 
 iface = info.recieve_iface
 
+INT_PROTOCOL = 0xfd
+TRACE_PROTOCOL = 0xfe
+
 class SwitchTrace(Packet):
     fields_desc = [ IntField("swid", 0)]
     def extract_padding(self, p):
@@ -28,7 +31,8 @@ class MRI(Packet):
                                    SwitchTrace,
                                    count_from=lambda pkt:(pkt.count*1))]
 
-bind_layers(UDP, MRI, dport=5432)
+# bind_layers(UDP, MRI, dport=5432)
+bind_layers(IP, MRI, proto=TRACE_PROTOCOL)
 
 
 def send_ack_pkt(iface, pkt, delta: float):
@@ -100,12 +104,13 @@ def handle_pkt_timeatamp(pkt):
 def receive_trace():
     print("trace: sniffing on %s" % iface)
     sys.stdout.flush()
-    sniff(filter="udp and port 5432", iface = iface, prn = lambda x: handle_pkt_trace(x))
+    # sniff(filter="udp and port 5432", iface = iface, prn = lambda x: handle_pkt_trace(x))
+    sniff(filter=f"ip and proto {TRACE_PROTOCOL}", iface = iface, prn = lambda x: handle_pkt_trace(x))
 
 def receive_timestamp():
     print("timestamp: sniffing on %s" % iface)
     sys.stdout.flush()
-    sniff(filter="udp and port 6543", iface = iface, prn = lambda x: handle_pkt_timeatamp(x))
+    sniff(filter="udp and port 1234", iface = iface, prn = lambda x: handle_pkt_timeatamp(x))
 
 if __name__ == '__main__':
     Process(target = receive_timestamp).start()
