@@ -4,7 +4,7 @@ from multiprocessing import Process
 import sys
 from time import sleep
 
-from scapy.all import sniff, sendp, send, get_if_hwaddr, bind_layers, conf
+from scapy.all import sniff, get_if_hwaddr, bind_layers, conf
 from scapy.all import Packet
 from scapy.all import Ether, IP, UDP, Raw
 from scapy.all import IntField, ShortField, PacketListField
@@ -20,6 +20,9 @@ iface = info.send_iface
 dst_mac = info.send_dst_mac
 # dst_mac = info.get_dst_mac(iface)
 addr = info.send_addr
+
+INT_PROTOCOL = 0xfd
+TRACE_PROTOCOL = 0xfe
 
 class SourceRoute(Packet):
    fields_desc = [ BitField("bos", 0, 8),
@@ -40,7 +43,8 @@ class MRI(Packet):
 bind_layers(Ether, SourceRoute, type=0x1234)
 bind_layers(SourceRoute, SourceRoute, bos=0)
 bind_layers(SourceRoute, IP, bos=1)
-bind_layers(UDP, MRI)
+bind_layers(IP, MRI, proto=INT_PROTOCOL)
+bind_layers(UDP, MRI, dport=12345)
 
 
 def send_mri():
@@ -48,23 +52,11 @@ def send_mri():
     iface_tx = iface
     s = conf.L2socket(iface=iface_tx)
 
-    # for i in range(0, int(sys.argv[1])):
-    #     pkt = Ether(src=get_if_hwaddr(iface_tx), dst=dst_mac) / \
-    #         IP(dst=addr, proto=17) / \
-    #             UDP(dport=4321, sport=1234) / \
-    #                 MRI(count=0, swtraces=[]) / \
-    #                     struct.pack('!d', time.time())
-    #     # pkt.show2()
-    #     s.send(pkt)
-        # print (f"{i} Send Time: {time.time()}")
-        # sleep(2)
-
-    sleep(1)
     pkt = Ether(src=get_if_hwaddr(iface_tx), dst=dst_mac) / \
-            IP(dst=addr, proto=17) / \
-                UDP(dport=4321, sport=1234) / \
-                    MRI(count=0, swtraces=[]) / \
-                        struct.pack('!d', time.time())
+            IP(dst=addr, proto=INT_PROTOCOL) / \
+                MRI(count=0, swtraces=[]) / \
+                    struct.pack('!d', time.time())
+
     # pkt.show2()
     s.send(pkt)
 
@@ -116,7 +108,7 @@ def send_sr(trace_pkt):
 
         sr_pkt = sr_pkt / \
             IP(dst=trace_pkt[IP].src, proto=17) / \
-                UDP(dport=6543, sport=3456) / \
+                UDP(dport=1234, sport=4321) / \
                     struct.pack('!d', time.time())
         
         # sr_pkt.show2()
@@ -159,7 +151,6 @@ def receive_sr_trace():
     iface_rx = iface
     print("sniffing on %s" % iface_rx)
     sys.stdout.flush()
-    # sniff(filter="udp and port 4322", iface = iface_rx, prn = lambda x: handle_pkt(x))
     sniff(filter="udp and port 12345", iface = iface_rx, prn = lambda x: handle_pkt_sr_trace(x))
 
 if __name__ == '__main__':
