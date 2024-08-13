@@ -265,7 +265,7 @@ for i, v in enumerate(nodes):
         f"h{str((i+1))}": {
             "ip": f"10.{ip_host_base}.{(i % 254 + 1)}.1/24",
             "ipv6": switch_ipv6,
-            # "bw": 1000.0
+            "bw": 1000.0
         }
     }}
 
