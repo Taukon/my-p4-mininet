@@ -17,7 +17,7 @@ from utils.json import *
 from utils.net import *
 from lib.json import load_switch_ip_list
 
-MAX_HOP_LEN = 16
+MAX_HOP_LEN = 9
 INT_PROTOCOL = 0xfd
 TRACE_PROTOCOL = 0xfe
 RT_PORT = 1234

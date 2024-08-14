@@ -271,40 +271,40 @@ control MyIngress(inout headers hdr,
         switchID_t swid = meta.clone_mri_metadata.swid;
 
         // MAX_HOPS = 16
-        if (tmp_count == 16){
-            if(hdr.swtraces[tmp_count - 1].swid == swid){
-                meta.clone_mri_metadata.is_loop = 1;
-            }
-            tmp_count = tmp_count - 1;
-        }
+        // if (tmp_count == 16){
+        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
+        //         meta.clone_mri_metadata.is_loop = 1;
+        //     }
+        //     tmp_count = tmp_count - 1;
+        // }
 
-        if (tmp_count == 15){
-            if(hdr.swtraces[tmp_count - 1].swid == swid){
-                meta.clone_mri_metadata.is_loop = 1;
-            }
-            tmp_count = tmp_count - 1;
-        }
+        // if (tmp_count == 15){
+        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
+        //         meta.clone_mri_metadata.is_loop = 1;
+        //     }
+        //     tmp_count = tmp_count - 1;
+        // }
 
-        if (tmp_count == 14){
-            if(hdr.swtraces[tmp_count - 1].swid == swid){
-                meta.clone_mri_metadata.is_loop = 1;
-            }
-            tmp_count = tmp_count - 1;
-        }
+        // if (tmp_count == 14){
+        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
+        //         meta.clone_mri_metadata.is_loop = 1;
+        //     }
+        //     tmp_count = tmp_count - 1;
+        // }
 
-        if (tmp_count == 13){
-            if(hdr.swtraces[tmp_count - 1].swid == swid){
-                meta.clone_mri_metadata.is_loop = 1;
-            }
-            tmp_count = tmp_count - 1;
-        }
+        // if (tmp_count == 13){
+        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
+        //         meta.clone_mri_metadata.is_loop = 1;
+        //     }
+        //     tmp_count = tmp_count - 1;
+        // }
 
-        if (tmp_count == 12){
-            if(hdr.swtraces[tmp_count - 1].swid == swid){
-                meta.clone_mri_metadata.is_loop = 1;
-            }
-            tmp_count = tmp_count - 1;
-        }
+        // if (tmp_count == 12){
+        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
+        //         meta.clone_mri_metadata.is_loop = 1;
+        //     }
+        //     tmp_count = tmp_count - 1;
+        // }
         
         if (tmp_count == 11){
             if(hdr.swtraces[tmp_count - 1].swid == swid){
@@ -430,9 +430,9 @@ control MyIngress(inout headers hdr,
 
             mri_is_loop_table.apply();
 
-            if(meta.clone_mri_metadata.is_over == 1){
-                mri_is_loop_over_limit();
-            }
+            // if(meta.clone_mri_metadata.is_over == 1){
+            //     mri_is_loop_over_limit();
+            // }
 
             // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < MAX_HOPS){
             if(meta.clone_mri_metadata.is_loop == 0 && meta.clone_mri_metadata.is_over == 0){
