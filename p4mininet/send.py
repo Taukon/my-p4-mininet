@@ -147,7 +147,7 @@ def send_timestamp(timestampID_bytes, count, dst_addr):
         # s.send(pkt)
 
         print (f"{i} Send Time: {time.time()}")
-        sleep(1)
+        sleep(0.5)
     
     s.close()
 
@@ -257,6 +257,7 @@ if __name__ == '__main__':
     dst_idx = 2
     is_seg6 = False
     is_mri_limit_hop = False
+    switch_ip_list_path = None
 
     for i in range(len(sys.argv)):
 
