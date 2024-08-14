@@ -103,7 +103,8 @@ outputstring_2e='''
 
 outputstring_3a='''
     info( '\\n\033[1;36m*** Starting network\033[0m\\n')
-    net.build()\n
+    net.build()
+    cli.set_mtu(net)\n
 '''
 
 outputstring_3b='''

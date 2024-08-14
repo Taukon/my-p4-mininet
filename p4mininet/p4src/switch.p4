@@ -8,7 +8,6 @@ const bit<16> TYPE_IPV6 = 0x86dd;
 const bit<8>  INT_PROTOCOL = 0xFD;
 const bit<8>  TRACE_PROTOCOL = 0xFE;
 
-// #define MAX_HOPS 10
 #define MAX_HOPS 9
 
 /*************************************************************************
@@ -84,6 +83,14 @@ struct parser_metadata_t {
 struct clone_mri_metadata_t {
     bit<1>  is_clone;
     bit<1>  is_loop;
+    bit<1>  is_over;
+    switchID_t swid;
+}
+
+struct swtrace_metadata_t {
+    bit<1>  is_set;
+    bit<1>  is_over;
+    switchID_t swid;
 }
 
 struct frr_metadata_t {
@@ -96,6 +103,7 @@ struct metadata {
     ingress_metadata_t   ingress_metadata;
     parser_metadata_t   parser_metadata;
     clone_mri_metadata_t clone_mri_metadata;
+    swtrace_metadata_t   swtrace_metadata;
     frr_metadata_t      frr_metadata;
 }
 
@@ -104,6 +112,7 @@ struct headers {
     ipv4_t               ipv4;
     ipv6_t               ipv6;
     mri_t                mri;
+    switch_t             over_swtrace;
     switch_t[MAX_HOPS]   swtraces;
 }
 
@@ -256,6 +265,65 @@ control MyIngress(inout headers hdr,
         default_action = mri_clone_no_action();
     }
 
+    action mri_is_loop_over_limit() {
+        
+        bit<16> tmp_count = hdr.mri.count;
+        switchID_t swid = meta.clone_mri_metadata.swid;
+
+        // MAX_HOPS = 16
+        if (tmp_count == 16){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 15){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 14){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 13){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 12){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+        
+        if (tmp_count == 11){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 10){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+        }
+
+        if (tmp_count == MAX_HOPS){
+            meta.clone_mri_metadata.is_over = 0;
+        }
+    }
+
     action mri_loop_no_action() {
         meta.clone_mri_metadata.is_loop = 0;
     }
@@ -263,6 +331,13 @@ control MyIngress(inout headers hdr,
     action mri_is_loop(switchID_t swid) {
         meta.clone_mri_metadata.is_loop = 0;
         bit<16> tmp_count = hdr.mri.count;
+
+        if(tmp_count > MAX_HOPS){
+            meta.clone_mri_metadata.is_over = 1;
+            meta.clone_mri_metadata.swid = swid;
+        }else{
+            meta.clone_mri_metadata.is_over = 0;
+        }
 
         // MAX_HOPS = 9
         if (tmp_count == 9){
@@ -355,7 +430,12 @@ control MyIngress(inout headers hdr,
 
             mri_is_loop_table.apply();
 
-            if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < MAX_HOPS){
+            if(meta.clone_mri_metadata.is_over == 1){
+                mri_is_loop_over_limit();
+            }
+
+            // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < MAX_HOPS){
+            if(meta.clone_mri_metadata.is_loop == 0 && meta.clone_mri_metadata.is_over == 0){
                 mri_clone_table.apply(); 
                 return;
             }
@@ -408,11 +488,24 @@ control MyEgress(inout headers hdr,
         default_action = drop;
     }
 
+    action swtrace_no_action() {
+        meta.swtrace_metadata.is_set = 0;
+    }
+
     action add_swtrace(switchID_t swid) { 
+        meta.swtrace_metadata.swid = swid;
+        meta.swtrace_metadata.is_set = 1;
+
         hdr.mri.count = hdr.mri.count + 1;
-        hdr.swtraces.push_front(1);
-        hdr.swtraces[0].setValid();
-        hdr.swtraces[0].swid = swid;
+        if (hdr.mri.count > MAX_HOPS){
+            meta.swtrace_metadata.is_over = 1;
+        }else{
+            meta.swtrace_metadata.is_over = 0;
+        }
+        
+        // hdr.swtraces.push_front(1);
+        // hdr.swtraces[0].setValid();
+        // hdr.swtraces[0].swid = swid;
  
 	    // hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4;
         hdr.ipv6.payload_len = hdr.ipv6.payload_len + SWTRACE_SIZE;
@@ -421,9 +514,9 @@ control MyEgress(inout headers hdr,
     table swtrace_table {
         actions = { 
 	        add_swtrace; 
-	        NoAction; 
+	        swtrace_no_action;
         }
-        default_action = NoAction();      
+        default_action = swtrace_no_action(); 
     }
 
     apply {
@@ -446,6 +539,15 @@ control MyEgress(inout headers hdr,
 
             if (hdr.mri.isValid()) {
                 swtrace_table.apply();
+                if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 1){
+                    hdr.over_swtrace.setValid();
+                    hdr.over_swtrace.swid = meta.swtrace_metadata.swid;
+        
+                }else if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 0){
+                    hdr.swtraces.push_front(1);
+                    hdr.swtraces[0].setValid();
+                    hdr.swtraces[0].swid = meta.swtrace_metadata.swid;
+                }
 
                 if(meta.clone_mri_metadata.is_clone == 1){
                     mri_mac_table.apply();
@@ -499,6 +601,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.ipv4);
         packet.emit(hdr.ipv6);
         packet.emit(hdr.mri);
+        packet.emit(hdr.over_swtrace);
         packet.emit(hdr.swtraces);                 
     }
 }
