@@ -110,7 +110,7 @@ def write_compare_result():
         for k2, v2 in v.items():
 
             if v2.get("trace") is None or v2.get("mri") is None:
-                print(f"trace is not found in {k}")
+                print(f"trace or mri is not found in {k}")
             
             elif v2["trace"].get("city_list") is not None \
                 and v2["mri"].get("city_list") is not None:
@@ -121,6 +121,7 @@ def write_compare_result():
                 mri = v2["mri"]
 
                 is_same_hop = trace["city_list"] == mri["city_list"]
+                is_same_hop_len = trace["hop_len"] == mri["hop_len"]
                 fast_route = "trace" if trace["delta"] < mri["delta"] else "mri"
                 if trace["delta"] == mri["delta"]:
                     fast_route = "same"
@@ -128,13 +129,17 @@ def write_compare_result():
                 result[k][k2] = v2 | {
                     "compare": {
                         "is_same_hop": is_same_hop,
+                        "is_same_hop_len": is_same_hop_len,
                         "fast_route": fast_route
                     }
                 }
 
-                if is_same_hop:
+                if is_same_hop or is_same_hop_len:
+                # if is_same_hop:
                     same_path_total = same_path_total + 1
-                if fast_route == "mri" and not is_same_hop:
+
+                if fast_route == "mri" and not is_same_hop and not is_same_hop_len:
+                # if fast_route == "mri" and not is_same_hop:
                     fast_route_mri_total = fast_route_mri_total + 1
 
     with open(file_path, mode="wt", encoding="utf-8") as fw:

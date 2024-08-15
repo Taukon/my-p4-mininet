@@ -136,6 +136,10 @@ def send_timestamp(timestampID_bytes, count, dst_addr):
     s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM, 0)
     # s.bind((get_ipv6(), 55555))
 
+    if count > 1:
+        count = count + 1
+        print(f"add count+1 for skip first delta packet")
+
     for i in range(0, count):
         payload = timestampID_bytes + struct.pack('!d', time.time())
         # payload = struct.pack('!d', time.time())
@@ -219,6 +223,9 @@ def handle_delta(pkt, timestampID_bytes, count, dst_idx, is_seg6):
     if 'total_delta' not in globals() or 'delta_count' not in globals():
         total_delta = 0
         delta_count = 0
+        if count > 1:
+            print(f"skip first delta packet")
+            return
     
     if timestampID_bytes != struct.pack('!d', timestampID):
         print("----- InValid Timestamp ID -----")
