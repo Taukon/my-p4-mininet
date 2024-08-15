@@ -2,6 +2,7 @@ from mininet.net import Mininet
 from mininet.cli import CLI
 from mininet.log import output, error
 import sys
+from time import sleep
 from lib import json
 
 def set_mtu(net: Mininet):
@@ -123,6 +124,10 @@ def trace( net: Mininet, line):
                     str_d = switch.name[1:]
                     cmd_str = f"python3 send.py -c {str_c} -d {str_d} -f {str_f} {str_mri} {str_mri_limit_hop}"
                     host.cmd(cmd_str)
+                    sleep(0.5)
+                    output(f"h{str_d} |")
+
+            output(f"\n")
 
     output(f"Total checks: {total_check}\n")
 
