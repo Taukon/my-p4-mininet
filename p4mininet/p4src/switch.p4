@@ -8,7 +8,8 @@ const bit<16> TYPE_IPV6 = 0x86dd;
 const bit<8>  INT_PROTOCOL = 0xFD;
 const bit<8>  TRACE_PROTOCOL = 0xFE;
 
-#define MAX_HOPS 9
+#define MAX_HOPS 16
+#define LOOP_CHECK_HOPS 9
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -271,40 +272,40 @@ control MyIngress(inout headers hdr,
         switchID_t swid = meta.clone_mri_metadata.swid;
 
         // MAX_HOPS = 16
-        // if (tmp_count == 16){
-        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
-        //         meta.clone_mri_metadata.is_loop = 1;
-        //     }
-        //     tmp_count = tmp_count - 1;
-        // }
+        if (tmp_count == 16){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
 
-        // if (tmp_count == 15){
-        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
-        //         meta.clone_mri_metadata.is_loop = 1;
-        //     }
-        //     tmp_count = tmp_count - 1;
-        // }
+        if (tmp_count == 15){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
 
-        // if (tmp_count == 14){
-        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
-        //         meta.clone_mri_metadata.is_loop = 1;
-        //     }
-        //     tmp_count = tmp_count - 1;
-        // }
+        if (tmp_count == 14){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
 
-        // if (tmp_count == 13){
-        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
-        //         meta.clone_mri_metadata.is_loop = 1;
-        //     }
-        //     tmp_count = tmp_count - 1;
-        // }
+        if (tmp_count == 13){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
 
-        // if (tmp_count == 12){
-        //     if(hdr.swtraces[tmp_count - 1].swid == swid){
-        //         meta.clone_mri_metadata.is_loop = 1;
-        //     }
-        //     tmp_count = tmp_count - 1;
-        // }
+        if (tmp_count == 12){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
         
         if (tmp_count == 11){
             if(hdr.swtraces[tmp_count - 1].swid == swid){
@@ -319,7 +320,7 @@ control MyIngress(inout headers hdr,
             }
         }
 
-        if (tmp_count == MAX_HOPS){
+        if (tmp_count == LOOP_CHECK_HOPS){
             meta.clone_mri_metadata.is_over = 0;
         }
     }
@@ -332,14 +333,13 @@ control MyIngress(inout headers hdr,
         meta.clone_mri_metadata.is_loop = 0;
         bit<16> tmp_count = hdr.mri.count;
 
-        if(tmp_count > MAX_HOPS){
+        if(tmp_count > LOOP_CHECK_HOPS){
             meta.clone_mri_metadata.is_over = 1;
             meta.clone_mri_metadata.swid = swid;
         }else{
             meta.clone_mri_metadata.is_over = 0;
         }
 
-        // MAX_HOPS = 9
         if (tmp_count == 9){
             if(hdr.swtraces[tmp_count - 1].swid == swid){
                 meta.clone_mri_metadata.is_loop = 1;
@@ -430,11 +430,11 @@ control MyIngress(inout headers hdr,
 
             mri_is_loop_table.apply();
 
-            // if(meta.clone_mri_metadata.is_over == 1){
-            //     mri_is_loop_over_limit();
-            // }
+            if(meta.clone_mri_metadata.is_over == 1 && meta.clone_mri_metadata.is_loop == 0){
+                mri_is_loop_over_limit();
+            }
 
-            // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < MAX_HOPS){
+            // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < LOOP_CHECK_HOPS){
             if(meta.clone_mri_metadata.is_loop == 0 && meta.clone_mri_metadata.is_over == 0){
                 mri_clone_table.apply(); 
                 return;
