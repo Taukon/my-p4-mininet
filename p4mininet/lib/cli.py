@@ -103,7 +103,7 @@ def trace( net: Mininet, line):
             else:
                 limit = limit - 1
 
-            output(f"trace on {host.name} | {limit} nodes remaining\n")
+            output(f"trace on {host.name} {str_mri} | {limit} nodes remaining\n")
             
             skip_idx = int(host.name[1:])
 
