@@ -440,7 +440,7 @@ control MyIngress(inout headers hdr,
                 return;
             }
 
-            // drop();
+            drop();
             return;
         }
 

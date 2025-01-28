@@ -66,3 +66,45 @@ def write_json_latlong():
 
 write_json_link()
 write_json_latlong()
+
+def check_json_link():
+    """
+    check link.json
+    """
+    delay_average = 0
+    delay_total = 0
+    links = 0
+    txt_cmd=["cat", "./os3e_link.txt"]
+    proc = subprocess.Popen(txt_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (txt_cache, txt_err) = proc.communicate()
+    txt_entries = txt_cache.decode().split("\n")
+    for entry in txt_entries.copy():
+        if not entry.startswith("#from"):
+            if len(entry) > 0:
+                from_ = entry.split()[0]
+                to_ = entry.split()[1]
+                capacity_ = entry.split()[2]
+                metric_ = entry.split()[3]
+                delay_ = entry.split()[4]
+                queue_ = entry.split()[5]
+
+                capacity_ = int(capacity_[:len(capacity_)-len("Gbps")])
+                metric_ = int(metric_)
+                delay_ = float(delay_[:len(delay_)-len("s")])
+                queue_ = int(queue_)
+
+                delay_total += delay_
+                links += 1
+    
+    delay_average = delay_total / links
+
+    print("Total delay: ", delay_total)
+    print("Average delay: ", delay_average)
+    print("Average delay * 100: ", delay_average * 100)
+    print("Total links: ", links)
+
+    print("Average delay[ms]: ", delay_average * 1000)
+    print("Average delay * 100[ms]: ", delay_average * 1000 * 100)
+
+                
+check_json_link()

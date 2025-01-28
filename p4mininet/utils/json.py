@@ -28,7 +28,7 @@ def write_result_city_list(is_seg6, dst_idx, city_list: list):
             "trace": {},
             "mri": {}
         }
-    
+
     if is_seg6:
         tmp_mri = result[src_sw][dst_sw]["mri"]
         result[src_sw][dst_sw]["mri"] = tmp_mri | {
@@ -74,7 +74,7 @@ def  write_result_delta(is_seg6, dst_idx, delta, count, last_delta):
             "trace": {},
             "mri": {}
         }
-    
+
     if is_seg6:
         tmp_mri = result[src_sw][dst_sw]["mri"]
         result[src_sw][dst_sw]["mri"] = tmp_mri | {
@@ -130,16 +130,17 @@ def write_compare_result():
                     "compare": {
                         "is_same_hop": is_same_hop,
                         "is_same_hop_len": is_same_hop_len,
-                        "fast_route": fast_route
+                        "fast_route": fast_route,
+                        "diff": trace["delta"] - mri["delta"]
                     }
                 }
 
-                if is_same_hop or is_same_hop_len:
-                # if is_same_hop:
+                # if is_same_hop or is_same_hop_len:
+                if is_same_hop:
                     same_path_total = same_path_total + 1
 
-                if fast_route == "mri" and not is_same_hop and not is_same_hop_len:
-                # if fast_route == "mri" and not is_same_hop:
+                # if fast_route == "mri" and not is_same_hop and not is_same_hop_len:
+                if fast_route == "mri" and not is_same_hop:
                     fast_route_mri_total = fast_route_mri_total + 1
 
     with open(file_path, mode="wt", encoding="utf-8") as fw:
