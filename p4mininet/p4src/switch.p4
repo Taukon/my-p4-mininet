@@ -3,14 +3,13 @@
 #include <v1model.p4>
 
 const bit<16> TYPE_IPV4 = 0x800;
-const bit<16> TYPE_SRCROUTING = 0x1234;
+const bit<16> TYPE_IPV6 = 0x86dd;
 
-const bit<8>  UDP_PROTOCOL = 0x11;
 const bit<8>  INT_PROTOCOL = 0xFD;
 const bit<8>  TRACE_PROTOCOL = 0xFE;
 
-// #define MAX_HOPS 10
-#define MAX_HOPS 9
+#define MAX_HOPS 16
+#define LOOP_CHECK_HOPS 9
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -20,11 +19,15 @@ typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
 
-typedef bit<32> switchID_t;
+typedef bit<128> switchID_t;
+// typedef bit<32> switchID_t;
 // typedef bit<32> qdepth_t;
 // typedef bit<32> qlatency_t;
 // typedef bit<32> plength_t;
 // typedef bit<32> txtotal_t;
+
+#define SWTRACE_SIZE 16
+// #define SWTRACE_SIZE 4
 
 header ethernet_t {
     macAddr_t dstAddr;
@@ -47,11 +50,15 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
-header udp_t {
-    bit<16> srcPort;
-    bit<16> dstPort;
-    bit<16> length_;
-    bit<16> checksum;
+header ipv6_t {
+    bit<4> version;
+    bit<8> traffic_class;
+    bit<20> flow_label;
+    bit<16> payload_len;
+    bit<8> next_hdr;
+    bit<8> hop_limit;
+    bit<128> src_addr;
+    bit<128> dst_addr;
 }
 
 header mri_t {
@@ -66,12 +73,6 @@ header switch_t {
     // txtotal_t   txtotal;
 }
 
-header srcRoute_t {
-    bit<8>    bos;
-    bit<32>   swid;
-    // bit<32>   next_swid;
-}
-
 struct ingress_metadata_t {
     bit<16>  count;
 }
@@ -80,13 +81,17 @@ struct parser_metadata_t {
     bit<16>  remaining;
 }
 
-struct srcRoute_metadata_t {
-    bit<1>  enable;
-}
-
 struct clone_mri_metadata_t {
     bit<1>  is_clone;
     bit<1>  is_loop;
+    bit<1>  is_over;
+    switchID_t swid;
+}
+
+struct swtrace_metadata_t {
+    bit<1>  is_set;
+    bit<1>  is_over;
+    switchID_t swid;
 }
 
 struct frr_metadata_t {
@@ -98,17 +103,17 @@ struct metadata {
     bit<16> l4Len;
     ingress_metadata_t   ingress_metadata;
     parser_metadata_t   parser_metadata;
-    srcRoute_metadata_t  srcRoute_metadata;
     clone_mri_metadata_t clone_mri_metadata;
+    swtrace_metadata_t   swtrace_metadata;
     frr_metadata_t      frr_metadata;
 }
 
 struct headers {
     ethernet_t           ethernet;
-    srcRoute_t[MAX_HOPS] srcRoutes;
     ipv4_t               ipv4;
-    udp_t                udp;
+    ipv6_t               ipv6;
     mri_t                mri;
+    switch_t             over_swtrace;
     switch_t[MAX_HOPS]   swtraces;
 }
 
@@ -128,33 +133,28 @@ parser MyParser(packet_in packet,
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
-            TYPE_SRCROUTING: parse_srcRouting;
+            TYPE_IPV6: parse_ipv6;
             TYPE_IPV4: parse_ipv4;
             default: accept;
         }
     }
 
-    state parse_srcRouting {
-        packet.extract(hdr.srcRoutes.next);
-        transition select(hdr.srcRoutes.last.bos) {
-            1: parse_ipv4;
-            default: parse_srcRouting;
-        }
-    }
-
-    state parse_ipv4 {
-        packet.extract(hdr.ipv4);
-        transition select(hdr.ipv4.protocol) {
-            UDP_PROTOCOL: parse_udp;
+    state parse_ipv6 {
+        packet.extract(hdr.ipv6);
+        transition select(hdr.ipv6.next_hdr) {
             INT_PROTOCOL: parse_mri;
             TRACE_PROTOCOL: parse_mri;
             default: accept;
         }
     }
 
-   state parse_udp {
-        packet.extract(hdr.udp);
-        transition accept;
+    state parse_ipv4 {
+        packet.extract(hdr.ipv4);
+        transition select(hdr.ipv4.protocol) {
+            // INT_PROTOCOL: parse_mri;
+            // TRACE_PROTOCOL: parse_mri;
+            default: accept;
+        }
     }
  
    state parse_mri {
@@ -242,81 +242,7 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
 
-    // ---------------------------ipv4 forward action & table----------------------------
-
-    action ipv4_forward(egressSpec_t port, macAddr_t srcAddr, macAddr_t dstAddr) {
-        standard_metadata.egress_spec = port;
-        hdr.ethernet.srcAddr = srcAddr;
-        hdr.ethernet.dstAddr = dstAddr;
-        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
-    }
-
-    // dst_ip is switch ip.
-    action ipv4_forward_to_frr() {
-        meta.frr_metadata.to_frr_port = 1;
-    }
-
-    table ipv4_forward_table {
-        key = {
-            hdr.ipv4.dstAddr: lpm;
-        }
-        actions = {
-            ipv4_forward;
-            ipv4_forward_to_frr;
-            drop;
-            NoAction;
-        }
-        size = 1024;
-        default_action = NoAction();
-    }
-
-    // ---------------------------sr action & table-----------------------------
-
-    action srcRoute_update() {
-        if (hdr.srcRoutes[0].bos == 1){
-            hdr.ethernet.etherType = TYPE_IPV4;
-        }
-    }
-
-    table srcRoute_own_id_table {
-        key = {
-            hdr.srcRoutes[0].swid: exact;
-        }
-        actions = {
-            srcRoute_update;
-            drop;
-            NoAction;
-        }
-        size = 8;
-        default_action = NoAction();
-    }
-
-    // hop to next(swid)
-    action srcRoute_nexthop(egressSpec_t port, macAddr_t srcAddr, macAddr_t dstAddr) {
-        meta.srcRoute_metadata.enable = 1;
-
-        standard_metadata.egress_spec = port;
-        hdr.ethernet.srcAddr = srcAddr;
-        // hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
-        hdr.ethernet.dstAddr = dstAddr;
-    }
-
-    action srcRoute_no_nexthop_action() {
-        meta.srcRoute_metadata.enable = 0;
-    }
-
-    table srcRoute_nexthop_table {
-        key = {
-            hdr.srcRoutes[0].swid: exact;
-        }
-        actions = {
-            srcRoute_nexthop;
-            srcRoute_no_nexthop_action;
-        }
-        size = 1024;
-        default_action = srcRoute_no_nexthop_action();
-    }
-
+    
     // ---------------------------mri action & table----------------------------
 
     action mri_clone_no_action() {
@@ -340,6 +266,65 @@ control MyIngress(inout headers hdr,
         default_action = mri_clone_no_action();
     }
 
+    action mri_is_loop_over_limit() {
+        
+        bit<16> tmp_count = hdr.mri.count;
+        switchID_t swid = meta.clone_mri_metadata.swid;
+
+        // MAX_HOPS = 16
+        if (tmp_count == 16){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 15){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 14){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 13){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 12){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+        
+        if (tmp_count == 11){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+            tmp_count = tmp_count - 1;
+        }
+
+        if (tmp_count == 10){
+            if(hdr.swtraces[tmp_count - 1].swid == swid){
+                meta.clone_mri_metadata.is_loop = 1;
+            }
+        }
+
+        if (tmp_count == LOOP_CHECK_HOPS){
+            meta.clone_mri_metadata.is_over = 0;
+        }
+    }
+
     action mri_loop_no_action() {
         meta.clone_mri_metadata.is_loop = 0;
     }
@@ -348,7 +333,13 @@ control MyIngress(inout headers hdr,
         meta.clone_mri_metadata.is_loop = 0;
         bit<16> tmp_count = hdr.mri.count;
 
-        // MAX_HOPS = 9
+        if(tmp_count > LOOP_CHECK_HOPS){
+            meta.clone_mri_metadata.is_over = 1;
+            meta.clone_mri_metadata.swid = swid;
+        }else{
+            meta.clone_mri_metadata.is_over = 0;
+        }
+
         if (tmp_count == 9){
             if(hdr.swtraces[tmp_count - 1].swid == swid){
                 meta.clone_mri_metadata.is_loop = 1;
@@ -428,30 +419,10 @@ control MyIngress(inout headers hdr,
             return;
         }
 
-        
-        // -------------------------Source Routing--------------------------
-        if (hdr.srcRoutes[0].isValid()){
-
-            if(srcRoute_own_id_table.apply().hit){
-                hdr.srcRoutes.pop_front(1);
-            }
-
-            if(hdr.srcRoutes[0].isValid()){
-                srcRoute_nexthop_table.apply();
-            }
-
-            if(meta.srcRoute_metadata.enable == 1){
-                if(hdr.ipv4.isValid() && hdr.ipv4.ttl > 0){
-                    hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
-                    return;
-                }
-            }
-        }
-
         // --------------------Multi-Hop Route Inspection--------------------
-        if(hdr.mri.isValid() && hdr.ipv4.isValid() && hdr.ipv4.protocol == INT_PROTOCOL){
-            if(hdr.ipv4.ttl > 0){
-                hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+        if(hdr.mri.isValid() && hdr.ipv6.isValid() && hdr.ipv6.next_hdr == INT_PROTOCOL){
+            if(hdr.ipv6.hop_limit > 0){
+                hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 1;
             }else{
                 drop();
                 return;
@@ -459,30 +430,27 @@ control MyIngress(inout headers hdr,
 
             mri_is_loop_table.apply();
 
-            if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < MAX_HOPS){
+            if(meta.clone_mri_metadata.is_over == 1 && meta.clone_mri_metadata.is_loop == 0){
+                mri_is_loop_over_limit();
+            }
+
+            // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < LOOP_CHECK_HOPS){
+            if(meta.clone_mri_metadata.is_loop == 0 && meta.clone_mri_metadata.is_over == 0){
                 mri_clone_table.apply(); 
                 return;
             }
 
-            // drop();
+            drop();
             return;
         }
 
         // --------------------For TRACE OSPF Route--------------------
-        if(hdr.mri.isValid() && hdr.ipv4.isValid() && hdr.ipv4.protocol == TRACE_PROTOCOL){
+        if(hdr.mri.isValid() && hdr.ipv6.isValid() && hdr.ipv6.next_hdr == TRACE_PROTOCOL){
             meta.clone_mri_metadata.is_loop = 0;
             meta.clone_mri_metadata.is_clone = 0;
         }
 
         // ------------------------------------------------------------------
-
-        // ipv4 forwarding
-        if(hdr.ipv4.isValid()) {
-            bool result = ipv4_forward_table.apply().hit;
-            if(result && meta.frr_metadata.to_frr_port == 0) {
-                return;
-            }
-        }
 
         to_frr_table.apply();
     }
@@ -520,29 +488,46 @@ control MyEgress(inout headers hdr,
         default_action = drop;
     }
 
+    action swtrace_no_action() {
+        meta.swtrace_metadata.is_set = 0;
+    }
+
     action add_swtrace(switchID_t swid) { 
+        meta.swtrace_metadata.swid = swid;
+        meta.swtrace_metadata.is_set = 1;
+
         hdr.mri.count = hdr.mri.count + 1;
-        hdr.swtraces.push_front(1);
-        hdr.swtraces[0].setValid();
-        hdr.swtraces[0].swid = swid;
+        if (hdr.mri.count > MAX_HOPS){
+            meta.swtrace_metadata.is_over = 1;
+        }else{
+            meta.swtrace_metadata.is_over = 0;
+        }
+        
+        // hdr.swtraces.push_front(1);
+        // hdr.swtraces[0].setValid();
+        // hdr.swtraces[0].swid = swid;
  
-	    hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4;
-        hdr.udp.length_ =  hdr.udp.length_ + 4;
+	    // hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4;
+        hdr.ipv6.payload_len = hdr.ipv6.payload_len + SWTRACE_SIZE;
     }
 
     table swtrace_table {
         actions = { 
 	        add_swtrace; 
-	        NoAction; 
+	        swtrace_no_action;
         }
-        default_action = NoAction();      
+        default_action = swtrace_no_action(); 
     }
 
     apply {
 
         // When is the case to use frr, return.
         if(meta.frr_metadata.is_frr_port == 1 || meta.frr_metadata.to_frr_port == 1) {
-            return;
+            if(meta.frr_metadata.is_frr_port == 0 && hdr.mri.isValid()){
+                
+            }else{
+                return;
+            }
         }
         
         // --------------------Multi-Hop Route Inspection--------------------
@@ -554,6 +539,15 @@ control MyEgress(inout headers hdr,
 
             if (hdr.mri.isValid()) {
                 swtrace_table.apply();
+                if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 1){
+                    hdr.over_swtrace.setValid();
+                    hdr.over_swtrace.swid = meta.swtrace_metadata.swid;
+        
+                }else if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 0){
+                    hdr.swtraces.push_front(1);
+                    hdr.swtraces[0].setValid();
+                    hdr.swtraces[0].swid = meta.swtrace_metadata.swid;
+                }
 
                 if(meta.clone_mri_metadata.is_clone == 1){
                     mri_mac_table.apply();
@@ -594,23 +588,6 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
             hdr.ipv4.hdrChecksum,
             HashAlgorithm.csum16
         );
-
-        update_checksum_with_payload(
-            hdr.udp.isValid(),
-            {
-                hdr.ipv4.srcAddr,
-                hdr.ipv4.dstAddr,
-                8w0,
-                hdr.ipv4.protocol,
-                meta.l4Len,
-                hdr.udp.srcPort,
-                hdr.udp.dstPort,
-                hdr.udp.length_,
-                16w0
-            },
-            hdr.udp.checksum, 
-            HashAlgorithm.csum16
-        );
     }
 }
 
@@ -621,10 +598,10 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
-        packet.emit(hdr.srcRoutes);
         packet.emit(hdr.ipv4);
-        packet.emit(hdr.udp);
+        packet.emit(hdr.ipv6);
         packet.emit(hdr.mri);
+        packet.emit(hdr.over_swtrace);
         packet.emit(hdr.swtraces);                 
     }
 }

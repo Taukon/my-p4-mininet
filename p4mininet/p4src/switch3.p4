@@ -86,6 +86,12 @@ struct clone_mri_metadata_t {
     bit<1>  is_loop;
 }
 
+struct swtrace_metadata_t {
+    bit<1>  is_set;
+    bit<1>  is_over;
+    switchID_t swid;
+}
+
 struct frr_metadata_t {
     bit<1>  is_frr_port;
     bit<1>  to_frr_port;
@@ -96,6 +102,7 @@ struct metadata {
     ingress_metadata_t   ingress_metadata;
     parser_metadata_t   parser_metadata;
     clone_mri_metadata_t clone_mri_metadata;
+    swtrace_metadata_t   swtrace_metadata;
     frr_metadata_t      frr_metadata;
 }
 
@@ -104,6 +111,7 @@ struct headers {
     ipv4_t               ipv4;
     ipv6_t               ipv6;
     mri_t                mri;
+    switch_t             over_swtrace;
     switch_t[MAX_HOPS]   swtraces;
 }
 
@@ -408,11 +416,24 @@ control MyEgress(inout headers hdr,
         default_action = drop;
     }
 
+    action swtrace_no_action() {
+        meta.swtrace_metadata.is_set = 0;
+    }
+
     action add_swtrace(switchID_t swid) { 
+        meta.swtrace_metadata.swid = swid;
+        meta.swtrace_metadata.is_set = 1;
+
         hdr.mri.count = hdr.mri.count + 1;
-        hdr.swtraces.push_front(1);
-        hdr.swtraces[0].setValid();
-        hdr.swtraces[0].swid = swid;
+        if (hdr.mri.count > MAX_HOPS){
+            meta.swtrace_metadata.is_over = 1;
+        }else{
+            meta.swtrace_metadata.is_over = 0;
+        }
+        
+        // hdr.swtraces.push_front(1);
+        // hdr.swtraces[0].setValid();
+        // hdr.swtraces[0].swid = swid;
  
 	    // hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4;
         hdr.ipv6.payload_len = hdr.ipv6.payload_len + SWTRACE_SIZE;
@@ -421,9 +442,9 @@ control MyEgress(inout headers hdr,
     table swtrace_table {
         actions = { 
 	        add_swtrace; 
-	        NoAction; 
+	        swtrace_no_action;
         }
-        default_action = NoAction();      
+        default_action = swtrace_no_action(); 
     }
 
     apply {
@@ -446,6 +467,15 @@ control MyEgress(inout headers hdr,
 
             if (hdr.mri.isValid()) {
                 swtrace_table.apply();
+                if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 1){
+                    hdr.over_swtrace.setValid();
+                    hdr.over_swtrace.swid = meta.swtrace_metadata.swid;
+        
+                }else if(meta.swtrace_metadata.is_set == 1 && meta.swtrace_metadata.is_over == 0){
+                    hdr.swtraces.push_front(1);
+                    hdr.swtraces[0].setValid();
+                    hdr.swtraces[0].swid = meta.swtrace_metadata.swid;
+                }
 
                 if(meta.clone_mri_metadata.is_clone == 1){
                     mri_mac_table.apply();
@@ -499,6 +529,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.ipv4);
         packet.emit(hdr.ipv6);
         packet.emit(hdr.mri);
+        packet.emit(hdr.over_swtrace);
         packet.emit(hdr.swtraces);                 
     }
 }

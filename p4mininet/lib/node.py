@@ -72,6 +72,21 @@ class FRR(Node):
         # enable proxy arp for all interfaces
         self.cmd("echo 1 > /proc/sys/net/ipv4/conf/all/proxy_arp")
 
+        # enable proxy_ndp for all interfaces
+        self.cmd("sysctl -w net.ipv6.conf.all.proxy_ndp=1")        
+        # c1 ip -6 neigh add proxy fc00::1:2:2:0:0 dev c1_s1-eth1
+
+
+        self.cmd("sysctl -w net.ipv6.conf.all.seg6_enabled=1")
+        # c1 ip -6 route add fc00::1:2:2:0:0/80 encap seg6 mode encap segs fc00::7:2:1:0:0 dev c1_s1-eth2
+        # c2 ip -6 route add fc00::7:2:1:0:0/128 encap seg6local action End dev c2_s2-eth1
+        # c1 ip -6 route add fc00::1:2:2:0:0/80 encap seg6 mode encap segs fc00::4:0:2:0:0 dev c1_s1-eth2
+        # c2 ip -6 route add fc00::4:0:2:0:0/80 encap seg6local action End.DT6 table 254 dev c2_s2-eth1
+
+        # this is for seg6local(must)
+        for i in self.nameToIntf.keys():
+            self.cmd("sysctl -w net.ipv6.conf.{}.seg6_enabled=1".format(i))
+
         self.start_frr_service()
 
     def start_frr_service(self):
@@ -136,12 +151,14 @@ class P4Controller(FRR):
         self.p4_switch = p4_switch
         self.link_ip_addrs = link_ip_addrs
         self.p4rt_intf_name = None
+        self.link_to_sw_intf_names = []
         super().__init__(name, **params)
 
 
     def set_frr_ospf_conf(self):
         
         ospf_network_list = ''
+        # ospf6_network_list = ''
 
         for k, v in self.link_ip_addrs.items():
             # if k != 'lo' and k[0:len("p4rt_")] != "p4rt_":
@@ -149,6 +166,11 @@ class P4Controller(FRR):
                 ip_addr = v.get("ip")
                 if ip_addr is not None:
                     ospf_network_list += f"  network {ip_addr} area 0.0.0.0\n"
+                
+                # ipv6_addr = v.get("ipv6")
+                # if ipv6_addr is not None:
+                #     ospf6_network_list += f"  network {ipv6_addr} area 0.0.0.0\n"
+
         # # ------------------------------------------------
         #         if k[0] == 'h':
         #             try:
@@ -162,11 +184,22 @@ class P4Controller(FRR):
         #                 print(e)
         # # ------------------------------------------------
 
-        # # enable proxy arp for only host interface
-        # self.cmd(f"echo 1 > /proc/sys/net/ipv4/conf/{self.host_intf_name}/proxy_arp")
+        ospf6_intf_list = ''
+        ospf6_intf_list += f'interface lo\n'
+        ospf6_intf_list += '  ipv6 ospf6 area 0.0.0.0\n'
+        ospf6_intf_list += '  ipv6 ospf6 passive\n'
+        ospf6_intf_list += '!\n'
+        ospf6_intf_list += f'interface {self.host_intf_name}\n'
+        ospf6_intf_list += '  ipv6 ospf6 area 0.0.0.0\n'
+        ospf6_intf_list += '  ipv6 ospf6 passive\n'
+        ospf6_intf_list += '!\n'
+        for intf_name in self.link_to_sw_intf_names:
+            ospf6_intf_list += f'interface {intf_name}\n'
+            ospf6_intf_list += '  ipv6 ospf6 area 0.0.0.0\n'
+            ospf6_intf_list += '!\n'
 
-        
-        ospf_config = 'enable\n'
+
+        ospf_config =  'enable\n'
         ospf_config += 'configure terminal\n'
         ospf_config += 'fpm address 127.0.0.1 port 2620\n'
         ospf_config += '!\n'
@@ -176,6 +209,7 @@ class P4Controller(FRR):
         ospf_config += f'interface {self.host_intf_name}\n'
         ospf_config += '  ip ospf passive\n'
         ospf_config += '!\n'
+        ospf_config += ospf6_intf_list
         ospf_config += 'router ospf\n'
         ospf_config += '  router-info area 0.0.0.0\n'
         # ------------------------------------------------
@@ -183,9 +217,17 @@ class P4Controller(FRR):
         # ------------------------------------------------
         ospf_config += ospf_network_list
         ospf_config += '!\n'
+        # ------------------------------------------------ospf6
+        ospf_config += 'router ospf6\n'
+        ospf_config += '  router-info area 0.0.0.0\n'
+        # ------------------------------------------------
+        ospf_config += '  maximum-paths 1\n'
+        # ------------------------------------------------
+        # ospf_config += ospf6_network_list
+        ospf_config += '!\n'
 
         
-        print(f"{self.name}: vtysh ospf conf")
+        print(f"{self.name}: vtysh ospf and ospf6 conf")
         self.vtysh_cmd(ospf_config)
 
 
@@ -241,16 +283,24 @@ class P4Controller(FRR):
                 # if "bw" in addr_item:
                 #     link_args = {"bw": addr_item["bw"]}
 
+                dummy_intf_name = f"dummy_{intf_item.get('intf')}"
+                intf_name = f"{self.name}_{intf_item.get('intf')}"
                 self.net.addLink(self.p4_switch, self, 
-                            intfName1=f"dummy_{intf_item.get('intf')}",
+                            intfName1=dummy_intf_name,
                             addr1=intf_item.get("link_mac"),
-                            intfName2=f"{self.name}_{intf_item.get('intf')}", 
+                            intfName2=intf_name, 
                             addr2=intf_item.get("mac"),
                             params2={'ip': addr_item.get('ip')},
                             cls=TCLink, **link_args)
                 
+                ipv6_addr = addr_item.get('ipv6')
+                if ipv6_addr is not None:
+                    self.cmd(f"ip -6 addr add {ipv6_addr} dev {intf_name}")
+                
                 if link_node_name[0] == 'h':
-                    self.host_intf_name = f"{self.name}_{intf_item.get('intf')}"
+                    self.host_intf_name = intf_name
+                else:
+                    self.link_to_sw_intf_names.append(intf_name)
                 
                 # print(f"{self.name}_{intf_item.get('intf')}: {addr_item.get('ip')} | {addr_item.get('bw')}")
                 
@@ -258,6 +308,9 @@ class P4Controller(FRR):
         if "ip" in self.link_ip_addrs.get("lo"):
             loopback_ip = self.link_ip_addrs["lo"]["ip"]
             self.cmd(f"ip addr add {loopback_ip} dev lo")
+
+            loopback_ipv6 = self.link_ip_addrs["lo"]["ipv6"]
+            self.cmd(f"ip -6 addr add {loopback_ipv6} dev lo")
             # self.cmd(f"ifconfig lo {self.link_ip_addrs["lo"]["ip"]}")
                 
         # p4runtime link
@@ -287,15 +340,24 @@ class P4Controller(FRR):
         if switch_index == 1:
             sleep(1)
 
-        # self.cmd(f"python3 ./p4runtime/load.py {self.p4_switch.name} > ./log/{self.name}_load.txt")
-        # print(f"python3 ./p4runtime/load.py {self.p4_switch.name} > ./log/{self.name}_load.txt")
-        # self.cmd(f"python3 ./p4runtime/table.py {self.p4_switch.name} > ./log/{self.name}_table.txt &")
-        # print(f"python3 ./p4runtime/table.py {self.p4_switch.name} > ./log/{self.name}_table.txt &")
-
         self.cmd(f"python3 ./p4runtime/load.py {self.p4_switch.name} > /dev/null")
         print(f"python3 ./p4runtime/load.py {self.p4_switch.name} > /dev/null")
-        self.cmd(f"python3 ./p4runtime/table.py {self.p4_switch.name} > /dev/null &")
-        print(f"python3 ./p4runtime/table.py {self.p4_switch.name} > /dev/null &")
+        # self.cmd(f"python3 ./p4runtime/table.py {self.p4_switch.name} > /dev/null &")
+        # print(f"python3 ./p4runtime/table.py {self.p4_switch.name} > /dev/null &")
+
+        # ip -6 neigh show proxy
+        for i in range(1, len(self.net.switches) + 1):
+            if i != switch_index:
+                self.cmd(f"ip -6 neigh add proxy fc00::1:{str(hex(i))[2:]}:2:0:0 dev {self.host_intf_name}")
+                print(f"ip -6 neigh add proxy fc00::1:{str(hex(i))[2:]}:2:0:0 dev {self.host_intf_name}")
+
+        # add loopback ip of frr
+        self.cmd(f"ip -6 neigh add proxy fc00::7:{str(hex(switch_index))[2:]}:1:0:0 dev {self.host_intf_name}")
+        print(f"ip -6 neigh add proxy fc00::7:{str(hex(switch_index))[2:]}:1:0:0 dev {self.host_intf_name}")
+
+        self.cmd(f"python3 ./p4runtime/table_ipv6.py {self.p4_switch.name} > /dev/null &")
+        print(f"python3 ./p4runtime/table_ipv6.py {self.p4_switch.name} > /dev/null &")
+        
 
 
 

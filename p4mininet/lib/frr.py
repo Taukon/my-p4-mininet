@@ -12,10 +12,12 @@
 daemons = """
 zebra=yes
 ospfd=yes
+ospf6d=yes
 
 vtysh_enable=yes
 zebra_options="  -A 127.0.0.1 -s 90000000 -M dplane_fpm_nl"
 ospfd_options="  --daemon -A 127.0.0.1"
+ospf6d_options=" --daemon -A ::1"
 """
 
 vtysh = """
@@ -23,29 +25,6 @@ hostname {name}
 no service integrated-vtysh-config
 """
 
-bgp_conf = """\
-enable
-configure terminal
-fpm address 127.0.0.1 port 2620
-!
-router bgp {as_number}
-  bgp router-id {router_id}
-  no bgp default ipv4-unicast
-  no bgp ebgp-requires-policy
-  neighbor CLOS peer-group
-  neighbor CLOS remote-as external
-  neighbor CLOS bfd
-  neighbor CLOS capability extended-nexthop
-  neighbor {l_name}_{s_name1} interface peer-group CLOS
-  neighbor {l_name}_{s_name2} interface peer-group CLOS
-  neighbor {l_name}_{s_name1} capability extended-nexthop
-  neighbor {l_name}_{s_name2} capability extended-nexthop
-  address-family ipv6 unicast
-    redistribute connected
-    neighbor CLOS activate
-  exit-address-family
-!
-"""
 
 # ospf_conf = """\
 # enable

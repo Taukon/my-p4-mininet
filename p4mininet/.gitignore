@@ -9,3 +9,4 @@ p4src/*
 nodes.json
 *_switch_ip_list.json
 *_network.py
+result*.json
