@@ -172,6 +172,28 @@ def test(net: Mininet, line):
     output(f"---------mri count:{count}---------\n")
     trace(net, f"-c {count} -f {t_str} -mri -lh")
 
+def mri(net: Mininet, line):
+    
+    args = line.split()
+    count = 10
+    t_str =""
+
+    for i in range(len(args)):
+        
+        if args[i] == '-c' and args[i+1].isdecimal():
+            count = int(args[i+1])
+
+        
+        if args[i] == '-t':
+            total = int(args[i+1]) if args[i+1].isdecimal() else len(net.switches)
+            t_str = f"-t {total}"
+
+
+    set_mtu(net)
+    
+    output(f"---------mri count:{count}---------\n")
+    trace(net, f"-c {count} -f {t_str} -mri -lh")
+
 
 class P4CLI(CLI):
 
@@ -179,17 +201,18 @@ class P4CLI(CLI):
         "Set mtu for all links"
         set_mtu(self.mn)
 
-
     def do_listen(self, line):
         "Listen for mri and trace packets"
         listen_mri_trace(self.mn)
-
 
     def do_trace( self, line):
         "Trace packets"
         trace(self.mn, line)
 
-
     def do_test(self, line):
         "Test"
         test(self.mn, line)
+
+    def do_mri(self, line):
+        "mri"
+        mri(self.mn, line)
