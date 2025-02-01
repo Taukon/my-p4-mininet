@@ -177,7 +177,7 @@ def handle_delta(pkt, timestampID_bytes, send_count, dst_idx, is_seg6):
 
 
 def sniff_reflect_swtraces(iface, dst_idx, is_srv6, switch_ip_list_path=None):
-    print("sniffing on %s receive_reflect_swtraces" % iface)
+    print("receive_reflect_swtraces: sniffing on %s" % iface)
     sys.stdout.flush()
     sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
           f" and proto {REFLECT_SWTRACES_PROTOCOL}", \
@@ -185,7 +185,7 @@ def sniff_reflect_swtraces(iface, dst_idx, is_srv6, switch_ip_list_path=None):
           prn = lambda x: receive_reflect_swtraces_pkt(iface, x, dst_idx, is_srv6, switch_ip_list_path))
     
 def sniff_ack_encap_srv6(iface, timestampID_bytes, send_count):
-    print("sniffing on %s receive_reflect_swtraces" % iface)
+    print("receive_reflect_swtraces: sniffing on %s" % iface)
     sys.stdout.flush()
     sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
           f" and (proto {ENCAP_SRV6_ACK_PROTOCOL} or {NOT_ENCAP_SRV6_ACK_PROTOCOL})", \
@@ -193,7 +193,7 @@ def sniff_ack_encap_srv6(iface, timestampID_bytes, send_count):
           prn = lambda x: receive_ack_encap_srv6_pkt(x, timestampID_bytes, send_count))
 
 def receive_delta(iface, timestampID_bytes, send_count, dst_idx, is_srv6):
-    print("sniffing on %s delta" % iface)
+    print("delta: sniffing on %s" % iface)
     sys.stdout.flush()
     sniff(filter=f"udp and port {DELTA_PORT}", iface = iface, \
           prn = lambda x: handle_delta(x, timestampID_bytes, send_count, dst_idx, is_srv6))

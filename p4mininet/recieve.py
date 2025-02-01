@@ -142,7 +142,7 @@ def reflect_timeatamp(pkt):
 
 
 def sniff_receive_swtraces(iface):
-    print("trace: sniffing on %s" % iface)
+    print("receive_swtraces: sniffing on %s" % iface)
     sys.stdout.flush()
     print(f"{get_ipv6()}")
     sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
@@ -150,8 +150,8 @@ def sniff_receive_swtraces(iface):
           iface = iface, prn = lambda x: receive_swtraces(iface, x))
     
 
-def sniff_receive_req_encap_srv6(iface):
-    print("trace: sniffing on %s" % iface)
+def sniff_req_encap_srv6(iface):
+    print("req_encap_srv6: sniffing on %s" % iface)
     sys.stdout.flush()
     print(f"{get_ipv6()}")
     sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
@@ -160,7 +160,7 @@ def sniff_receive_req_encap_srv6(iface):
 
 
 def sniff_reflect_timestamp(iface):
-    print("timestamp: sniffing on %s" % iface)
+    print("reflect_timestamp: sniffing on %s" % iface)
     sys.stdout.flush()
     sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
           f" and udp and port {RT_PORT}", \
@@ -170,7 +170,7 @@ def sniff_reflect_timestamp(iface):
 if __name__ == '__main__':
     iface = get_defalt_ifname()
 
-    Process(target=sniff_receive_req_encap_srv6, args=(iface,)).start()
+    Process(target=sniff_req_encap_srv6, args=(iface,)).start()
     Process(target=sniff_reflect_timestamp, args=(iface,)).start()
     
     sniff_receive_swtraces(iface)
