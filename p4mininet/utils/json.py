@@ -2,7 +2,7 @@ import json
 import os
 from utils.net import get_defalt_ifname
 
-file_path = "result.json"
+file_path = os.getenv('RESULT_JSON_FILE', 'result.json')
 
 def write_result_city_list(is_seg6, dst_idx, city_list: list):
 
