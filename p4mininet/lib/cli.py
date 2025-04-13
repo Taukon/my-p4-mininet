@@ -347,7 +347,7 @@ def trace_load_test(net: Mininet, line):
                     total_check = total_check + 1
                     str_d = switch.name[1:]
                     env_str = f"RESULT_JSON_FILE=result_load_test_{dst_switches}.json"
-                    cmd_str = f"{env_str} python3 send.py -c {str_c} -d {str_d} -f {str_f} {str_mri} {str_mri_limit_hop}"
+                    cmd_str = f"{env_str} python3 load_test_send.py -c {str_c} -d {str_d} -f {str_f} {str_mri} {str_mri_limit_hop}"
 
                     count = 0
                     result = send_trace(net, host, cmd_str, str_d)

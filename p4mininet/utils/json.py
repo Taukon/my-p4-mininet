@@ -1,5 +1,6 @@
 import json
 import os
+import statistics
 from utils.net import get_defalt_ifname
 
 file_path = os.getenv('RESULT_JSON_FILE', 'result.json')
@@ -88,6 +89,58 @@ def  write_result_delta(is_seg6, dst_idx, delta, count, last_delta):
         result[src_sw][dst_sw]["trace"] = tmp_trace | {
             "count": count,
             "delta": delta,
+            "last_delta": last_delta
+        }
+
+    with open(file_path, mode="wt", encoding="utf-8") as fw:
+        json.dump(result, fw, ensure_ascii=False, indent=4)
+
+    fr.close()
+    fw.close()
+
+
+def  write_result_load_test_delta(is_seg6, dst_idx, delta, count, last_delta, list_delta):
+
+    src_idx = get_defalt_ifname().split("-")[0][1:]
+    src_sw = f"s{src_idx}"
+    dst_sw = f"s{dst_idx}"
+
+    if not os.path.exists(file_path):
+        with open(file_path, "w") as f:
+            json.dump({}, f, ensure_ascii=False, indent=4)
+            f.close()
+
+    with open(file_path, mode="rt", encoding="utf-8") as fr:
+        result = json.load(fr)
+
+    if result.get(src_sw) is None:
+        print(f"src_sw: {src_sw} is not found")
+        result[src_sw] = {}
+
+    if result[src_sw].get(dst_sw) is None:
+        print(f"dst_sw: {dst_sw} is not found")
+        result[src_sw][dst_sw] = {
+            "trace": {},
+            "mri": {}
+        }
+
+    if is_seg6:
+        tmp_mri = result[src_sw][dst_sw]["mri"]
+        result[src_sw][dst_sw]["mri"] = tmp_mri | {
+            "count": count,
+            "delta": delta,
+            "median_delta": statistics.median(list_delta),
+            "list_delta": list_delta,
+            "last_delta": last_delta
+        }
+
+    else:
+        tmp_trace = result[src_sw][dst_sw]["trace"]
+        result[src_sw][dst_sw]["trace"] = tmp_trace | {
+            "count": count,
+            "delta": delta,
+            "median_delta": statistics.median(list_delta),
+            "list_delta": list_delta,
             "last_delta": last_delta
         }
 
