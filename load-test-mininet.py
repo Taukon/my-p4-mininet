@@ -36,10 +36,14 @@ ip_switch_base = 7
 
 # Enable ssh access for host nodes
 enable_ssh = 0
+enable_auto = 0
 
 for i in range(len(argv)):
     if argv[i] == '--ssh':
         enable_ssh = 1
+    
+    if argv[i] == '--auto':
+        enable_auto = 1
 
 # Define string fragments for output later on
 outputstring_1 = '''#!/usr/bin/python
@@ -126,6 +130,12 @@ user_simulation_code_area='''
 
 outputstring_4c='''
     cli.P4CLI(net)
+'''
+
+if enable_auto:
+    outputstring_4c='''
+    cli.listen_mri_trace(net)
+    cli.load_test(net, "")
 '''
 
 outputstring_4d='''

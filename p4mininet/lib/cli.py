@@ -369,6 +369,8 @@ def listen_mri_trace(net: Mininet):
         if host.name[0] == "h":
             host.cmd(f"python3 recieve.py {host.name} &")
             output(f"Listening on {host.name}\n")
+    
+    sleep(1)
 
 def relisten_mri_trace(net: Mininet, line):
     "Listen for mri and trace packets again"
