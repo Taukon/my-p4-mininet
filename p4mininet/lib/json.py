@@ -84,3 +84,27 @@ def load_switch_ip_list(file_path: str) -> dict:
         switch_ip_list = json.load(f)
 
     return switch_ip_list
+
+
+def is_exist_trace_or_mri(src_idx, is_mri, file_path):
+    src_sw = f"s{src_idx}"
+
+    with open(file_path, mode="rt", encoding="utf-8") as fr:
+        result = json.load(fr)
+
+    if result.get(src_sw) is None:
+        print(f"src_sw: {src_sw} is not found")
+        return False
+        
+    for dst_sw, v in result[src_sw].items():
+    
+        if is_mri:
+            if v["mri"].get("count") is None:
+                print(f"mri is not found in {src_sw}-{dst_sw}")
+                return False
+        else:
+            if v["trace"].get("count") is None:
+                print(f"trace is not found in {src_sw}-{dst_sw}")
+                return False
+    
+    return True

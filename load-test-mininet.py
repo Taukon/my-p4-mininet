@@ -135,7 +135,7 @@ outputstring_4c='''
 if enable_auto:
     outputstring_4c='''
     cli.listen_mri_trace(net)
-    cli.load_test(net, "")
+    cli.load_test(net, "-auto")
 '''
 
 outputstring_4d='''

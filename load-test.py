@@ -32,7 +32,7 @@ if __name__ == "__main__":
     if enable_auto:
         print("Running in automatic mode.")
 
-        list_host = [1, 5, 10, 15, 20, 25, 30, 35]
+        list_host = [1, 5, 10, 15, 20, 25, 30]
         for i in list_host:
             print(f"Running load test for host {i}")
             run_load_test(i, enable_auto)

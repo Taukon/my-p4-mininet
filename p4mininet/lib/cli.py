@@ -169,7 +169,7 @@ def send_trace(net: Mininet, host, cmd_str, str_d):
         sleep(2)
         # host.cmd(f"python3 kill_send.py")
         # Process(target=host.cmd, args=(f"python3 kill_send.py",)).start()
-        result = subprocess.run(['python3', 'kill_send.py'], capture_output=True, text=True)
+        result = subprocess.run(['sudo', 'python3', 'kill_send.py'], capture_output=True, text=True)
         output(f"{result}\n")
         
         return False
@@ -317,6 +317,9 @@ def trace_load_test(net: Mininet, line):
 
     for host in net.hosts:
         if host.name[0] == "h":
+            if host.name != "h1":    
+                continue
+
             if limit == 0:
                 break
             else:
@@ -369,8 +372,7 @@ def listen_mri_trace(net: Mininet):
         if host.name[0] == "h":
             host.cmd(f"python3 recieve.py {host.name} &")
             output(f"Listening on {host.name}\n")
-    
-    sleep(1)
+
 
 def relisten_mri_trace(net: Mininet, line):
     "Listen for mri and trace packets again"
@@ -455,9 +457,15 @@ def test(net: Mininet, line):
 def load_test(net: Mininet, line):
 
     args = line.split()
-    count = 10
+    count = 12
     init_count = 2
     t_str =""
+    is_auto = False
+    dst_switches = -1
+    for i in range(len(net.switches)):
+        if net.switches[i].name[0] == "s":
+            dst_switches += 1
+    file_name = f"result_load_test_{dst_switches}.json"
 
     for i in range(len(args)):
         
@@ -471,6 +479,9 @@ def load_test(net: Mininet, line):
             total = int(args[i+1]) if args[i+1].isdecimal() else len(net.switches)
             t_str = f"-t {total}"
 
+        if args[i] == '-auto':
+            is_auto = True
+
 
     set_mtu(net)
     # listen_mri_trace(net)
@@ -482,6 +493,34 @@ def load_test(net: Mininet, line):
     
     output(f"---------mri count:{count}---------\n")
     trace_load_test(net, f"-c {count} -f {t_str} -mri -lh")
+
+    if is_auto:
+
+        for i in range(1, 4):
+            if json.is_exist_trace_or_mri(1, False, file_name):
+                output(f"---------is_exist_trace_json:{json.is_exist_trace_or_mri(1, False, file_name)}---------\n")
+                break
+            else:
+                output(f"---------trace count again {i}:{count}---------\n")
+                trace_load_test(net, f"-c {count} -f {t_str}")
+
+        if json.is_exist_trace_or_mri(1, False, file_name):
+            output(f"---------success trace count {count}---------\n")
+        else:
+            output(f"---------fail trace count {count}---------\n")
+
+        for i in range(1, 4):
+            if json.is_exist_trace_or_mri(1, True, file_name):
+                output(f"---------is_exist_mri_json:{json.is_exist_trace_or_mri(1, True, file_name)}---------\n")
+                break
+            else:
+                output(f"---------mri count again {i}:{count}---------\n")
+                trace_load_test(net, f"-c {count} -f {t_str} -mri -lh")
+
+        if json.is_exist_trace_or_mri(1, True, file_name):
+            output(f"---------success mri count {count}---------\n")
+        else:
+            output(f"---------fail mri count {count}---------\n")
 
 
 def mri(net: Mininet, line):
