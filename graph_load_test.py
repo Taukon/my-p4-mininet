@@ -57,7 +57,7 @@ plt.plot(switch_counts, proposed_median_ms, marker='o', label='Proposed Method (
 plt.plot(switch_counts, simple_median_ms, marker='s', label='Simple Hop (Median)')
 plt.xlabel('Number of Switch Connections')
 plt.ylabel('Time (ms)')
-plt.title('Comparison of Median Time by Number of Switch Connections')
+plt.title('Comparison of Time by Number of Switch Connections')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
