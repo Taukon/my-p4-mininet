@@ -114,8 +114,8 @@ def write_compare_result(file_path):
             if v2.get("trace") is None or v2.get("mri") is None:
                 print(f"trace or mri is not found in {k}")
             
-            elif v2["trace"].get("city_list") is not None \
-                and v2["mri"].get("city_list") is not None:
+            elif v2["trace"].get("list_delta") is not None \
+                and v2["mri"].get("list_delta") is not None:
                 
                 total = total + 1
 
@@ -176,15 +176,15 @@ def compare_load_test():
         print(f"----------------------------------------")
         mri_mean = total_delta_mri/total
         trace_mean = total_delta_trace/total
-        print(f"提案手法　 平均値: {mri_mean}s")
-        print(f"単純ホップ 平均値: {trace_mean}s")
-        print(f"　　　　差 平均値: {(mri_mean - trace_mean) * 1000}ms")
+        print(f"提案手法　 平均値: {mri_mean}ms")
+        print(f"単純ホップ 平均値: {trace_mean}ms")
+        print(f"　　　　差 平均値: {(mri_mean - trace_mean)}ms")
         print(f"----------------------------------------")
         mri_median_mean = total_median_delta_mri/total
         trace_median_mean = total_median_delta_trace/total
-        print(f"提案手法　 中央値: {mri_median_mean}s")
-        print(f"単純ホップ 中央値: {trace_median_mean}s")
-        print(f"　　　　差 中央値: {(mri_median_mean - trace_median_mean) * 1000}ms")
+        print(f"提案手法　 中央値: {mri_median_mean}ms")
+        print(f"単純ホップ 中央値: {trace_median_mean}ms")
+        print(f"　　　　差 中央値: {(mri_median_mean - trace_median_mean)}ms")
 
         mri_avg.append(mri_mean)
         mri_median.append(mri_median_mean)
