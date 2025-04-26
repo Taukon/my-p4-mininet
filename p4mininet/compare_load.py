@@ -23,8 +23,8 @@ def check_max_min_delta(file_path):
             if v2.get("trace") is None or v2.get("mri") is None:
                 print(f"trace or mri is not found in {k}")
             
-            elif v2["trace"].get("city_list") is not None \
-                and v2["mri"].get("city_list") is not None:
+            elif v2["trace"].get("list_delta") is not None \
+                and v2["mri"].get("list_delta") is not None:
                 
                 total = total + 1
 
