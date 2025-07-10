@@ -78,8 +78,20 @@ def receive_reflect_swtraces_pkt(iface, reflect_packet, dst_idx, is_srv6, switch
 
     print("[!] Got Packet: {src} -> {dst}".format(src=reflect_packet[IPv6].src, dst=reflect_packet[IPv6].dst))
     # reflect_packet.show2()
-    #sys.stdout.flush()
+
+    print(f"----- mri update_timestamp_count: {reflect_packet[MRI].update_timestamp_count} | outgoing_timestamp_src: {reflect_packet[MRI].outgoing_timestamp_src} | incoming_timestamp_dst: {reflect_packet[MRI].incoming_timestamp_dst} | outgoing_timestamp_dst: {reflect_packet[MRI].outgoing_timestamp_dst} | incoming_timestamp_src: {reflect_packet[MRI].incoming_timestamp_src} -----")
     print(f"----- swtraces len: {len(reflect_packet[MRI].swtraces)} | dst: {reflect_packet[Ether].dst} | src: {reflect_packet[Ether].src}")
+    src_latency = (reflect_packet[MRI].incoming_timestamp_src - reflect_packet[MRI].outgoing_timestamp_src) / 1000
+    dst_latency = (reflect_packet[MRI].outgoing_timestamp_dst - reflect_packet[MRI].incoming_timestamp_dst) / 1000
+    # print(f"----- delay: {delay * 1000} microseconds | {delay} ms -----")
+    
+    # timestamp_recieve_start = struct.unpack('!d', reflect_packet[Raw].load[:8])[0] * 1000
+    # timestamp_recieve_end = struct.unpack('!d', reflect_packet[Raw].load[8:])[0] * 1000
+    # receive_delta = timestamp_recieve_end - timestamp_recieve_start
+
+    # print(f"----- timestamp recieve start: {timestamp_recieve_start} | end: {timestamp_recieve_end} -----")
+    # print(f"----- timestamp delta: {receive_delta} ms -----")
+
     # for i in range(0, len(swtraces)): 
     #     ip_bytes = (swtraces[i].swid).to_bytes(16, byteorder='big')
     #     print(f"swid: {socket.inet_ntop(socket.AF_INET6, ip_bytes)}")
@@ -110,7 +122,13 @@ def receive_reflect_swtraces_pkt(iface, reflect_packet, dst_idx, is_srv6, switch
     write_result_city_list(is_srv6, dst_idx, city_list)
     dst_addr = reflect_packet[IPv6].src
     print(f"----- dst_addr: {dst_addr} -----")
-    send_req_encap_srv6(iface, dst_mac, dst_addr, count, swtraces, is_srv6)
+    # send_req_encap_srv6(iface, dst_mac, dst_addr, count, swtraces, is_srv6)
+
+    # print(f"----- delay: {delay} ms | receive delta: {receive_delta} ms -----")
+    # print(f"----- switch latency: {delay - receive_delta} ms -----")
+    print(f"----- total latency: {src_latency} ms | dst latency: {dst_latency} ms -----")
+    print(f"----- latency: {src_latency - dst_latency} ms -----")
+
     exit(0)
 
 
@@ -133,7 +151,7 @@ def receive_ack_encap_srv6_pkt(ack_encap_packet, timestampID_bytes, send_count):
 
     print("----- waiting for 1 seconds -----")
     sleep(1)
-    send_timestamp_pkt(timestampID_bytes, send_count, dst_addr)
+    # send_timestamp_pkt(timestampID_bytes, send_count, dst_addr)
 
     if nh == ENCAP_SRV6_ACK_PROTOCOL and check_seg6_encap(dst_addr):
         print(f"del encap {dst_addr}")
@@ -142,38 +160,38 @@ def receive_ack_encap_srv6_pkt(ack_encap_packet, timestampID_bytes, send_count):
     exit(0)
 
 
-def handle_delta(pkt, timestampID_bytes, send_count, dst_idx, is_seg6):
-    global total_delta
-    global delta_count
+# def handle_delta(pkt, timestampID_bytes, send_count, dst_idx, is_seg6):
+#     global total_delta
+#     global delta_count
 
-    print(f"got a timestamp packet | {pkt[IPv6].src}")
-    # pkt.show2()
+#     print(f"got a timestamp packet | {pkt[IPv6].src}")
+#     # pkt.show2()
 
-    sys.stdout.flush()
+#     sys.stdout.flush()
 
-    delta = struct.unpack('!d', pkt[Raw].load[8:])[0]
-    timestampID = struct.unpack('!d', pkt[Raw].load[:8])[0]
+#     delta = struct.unpack('!d', pkt[Raw].load[8:])[0]
+#     timestampID = struct.unpack('!d', pkt[Raw].load[:8])[0]
 
-    if 'total_delta' not in globals() or 'delta_count' not in globals():
-        total_delta = 0
-        delta_count = 0
-        if send_count > 1:
-            print(f"skip first delta packet")
-            return
+#     if 'total_delta' not in globals() or 'delta_count' not in globals():
+#         total_delta = 0
+#         delta_count = 0
+#         if send_count > 1:
+#             print(f"skip first delta packet")
+#             return
     
-    if timestampID_bytes != struct.pack('!d', timestampID):
-        print("----- InValid Timestamp ID -----")
-        exit(1)
+#     if timestampID_bytes != struct.pack('!d', timestampID):
+#         print("----- InValid Timestamp ID -----")
+#         exit(1)
     
-    total_delta += delta
-    delta_count += 1
-    print(f"----- TM id: {timestampID} | delta: {delta} | Average Delta: {total_delta / delta_count} | count: {delta_count} -----")
+#     total_delta += delta
+#     delta_count += 1
+#     print(f"----- TM id: {timestampID} | delta: {delta} | Average Delta: {total_delta / delta_count} | count: {delta_count} -----")
 
-    if(send_count == delta_count):
-        mean_delta = total_delta / delta_count
-        write_result_delta(is_seg6, dst_idx, mean_delta, delta_count, delta)
-        print("----- Done -----")
-        exit(0)
+#     if(send_count == delta_count):
+#         mean_delta = total_delta / delta_count
+#         write_result_delta(is_seg6, dst_idx, mean_delta, delta_count, delta)
+#         print("----- Done -----")
+#         exit(0)
 
 
 def sniff_reflect_swtraces(iface, dst_idx, is_srv6, switch_ip_list_path=None):
@@ -192,14 +210,15 @@ def sniff_ack_encap_srv6(iface, timestampID_bytes, send_count):
           iface = iface, \
           prn = lambda x: receive_ack_encap_srv6_pkt(x, timestampID_bytes, send_count))
 
-def receive_delta(iface, timestampID_bytes, send_count, dst_idx, is_srv6):
-    print("delta: sniffing on %s" % iface)
-    sys.stdout.flush()
-    sniff(filter=f"udp and port {DELTA_PORT}", iface = iface, \
-          prn = lambda x: handle_delta(x, timestampID_bytes, send_count, dst_idx, is_srv6))
+# def receive_delta(iface, timestampID_bytes, send_count, dst_idx, is_srv6):
+#     print("delta: sniffing on %s" % iface)
+#     sys.stdout.flush()
+#     sniff(filter=f"udp and port {DELTA_PORT}", iface = iface, \
+#           prn = lambda x: handle_delta(x, timestampID_bytes, send_count, dst_idx, is_srv6))
 
 if __name__ == '__main__':
     # mininet>  h1 python3 send.py -f Abilene_switch_ip_list.json -c 5 -d 5 -mri
+    # mininet>  h1 python3 send.py -f os3e_switch_ip_list.json -c 5 -d 5 -mri
 
     iface = get_defalt_ifname()
     # dst_mac = send_dst_mac
@@ -234,6 +253,9 @@ if __name__ == '__main__':
     timestampID_bytes = struct.pack('!d', time.time())
     print(f"timestampID: {struct.unpack('!d', timestampID_bytes)[0]}")
 
+    Process(target=sniff_reflect_swtraces, args=(iface, dst_idx, is_srv6, switch_ip_list_path)).start()
+    Process(target=sniff_ack_encap_srv6, args=(iface, timestampID_bytes, send_count)).start()
+
     if is_srv6:
         tmp_dst_idx = dst_idx if is_mri_limit_hop else None
         if not check_mri_hop_enable(tmp_dst_idx):
@@ -243,7 +265,5 @@ if __name__ == '__main__':
     else:
         Process(target=send_trace_pkt, args=(iface, dst_mac, addr)).start()
         
-    Process(target=sniff_reflect_swtraces, args=(iface, dst_idx, is_srv6, switch_ip_list_path)).start()
-    Process(target=sniff_ack_encap_srv6, args=(iface, timestampID_bytes, send_count)).start()
     # receive()
-    receive_delta(iface, timestampID_bytes, send_count, dst_idx, is_srv6)
+    # receive_delta(iface, timestampID_bytes, send_count, dst_idx, is_srv6)

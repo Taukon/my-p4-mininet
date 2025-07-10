@@ -57,32 +57,42 @@ print(ssh.after.decode(encoding='utf-8'), flush=True)
 time.sleep(1)
 
 
-for i in range(1, dst_switches+1):
-    dst_idx = i+1
-    correct_answer = f'{send_count}'
+# ssh.sendline(f"echo {password} | sudo -S python3 explore_test.py -c {send_count} -s {dst_switches}")
+ssh.sendline(f"echo ubuntunk | sudo -S python3 explore_test.py -c {send_count} -s {dst_switches}")
+ssh.expect(r"\[.*\]\$ ")
+print(ssh.before.decode(encoding='utf-8'), flush=True)
+print(ssh.after.decode(encoding='utf-8'), flush=True)
+time.sleep(1)
 
-    while True:
 
-        # trace
-        ssh.sendline(f"RESULT_JSON_FILE=result_load_test_{dst_switches}.json python3 load_test_ping.py -c {send_count} -d {dst_idx}")
-        ssh.expect(r"\[.*\]\$ ")
-        print(ssh.before.decode(encoding='utf-8'), flush=True)
-        trace_result = ssh.after.decode(encoding='utf-8')[15:17]
-        print(f"  trace: {correct_answer == trace_result} | {correct_answer} | {trace_result}")
-        time.sleep(1)
+ssh.sendline(f"echo {password} | sudo -S chown -R {username}:{username} result_load_test_{dst_switches}.json")
+ssh.expect(r"\[.*\]\$ ")
+print(ssh.before.decode(encoding='utf-8'), flush=True)
+print(ssh.after.decode(encoding='utf-8'), flush=True)
 
-        # mri
-        ssh.sendline(f"RESULT_JSON_FILE=result_load_test_{dst_switches}.json python3 load_test_ping.py -c {send_count} -d {dst_idx} -mri")
-        ssh.expect(r"\[.*\]\$ ")
-        print(ssh.before.decode(encoding='utf-8'), flush=True)
-        mri_result = ssh.after.decode(encoding='utf-8')[15:17]
-        print(f"  mri: {correct_answer == mri_result} | {correct_answer} | {mri_result}")
-        time.sleep(1)
 
-        if correct_answer == trace_result and correct_answer == mri_result:
-            break
-        else:
-            print("Retrying...")
+# while True:
+
+#     # trace
+#     ssh.sendline(f"RESULT_JSON_FILE=result_load_test_{dst_switches}.json python3 load_test_ping.py -c {send_count} -d {dst_idx}")
+#     ssh.expect(r"\[.*\]\$ ")
+#     print(ssh.before.decode(encoding='utf-8'), flush=True)
+#     trace_result = ssh.after.decode(encoding='utf-8')[15:17]
+#     print(f"  trace: {correct_answer == trace_result} | {correct_answer} | {trace_result}")
+#     time.sleep(1)
+
+#     # mri
+#     ssh.sendline(f"RESULT_JSON_FILE=result_load_test_{dst_switches}.json python3 load_test_ping.py -c {send_count} -d {dst_idx} -mri")
+#     ssh.expect(r"\[.*\]\$ ")
+#     print(ssh.before.decode(encoding='utf-8'), flush=True)
+#     mri_result = ssh.after.decode(encoding='utf-8')[15:17]
+#     print(f"  mri: {correct_answer == mri_result} | {correct_answer} | {mri_result}")
+#     time.sleep(1)
+
+#     if correct_answer == trace_result and correct_answer == mri_result:
+#         break
+#     else:
+#         print("Retrying...")
 
 
 # SSHサーバーからログアウト

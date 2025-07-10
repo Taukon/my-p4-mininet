@@ -160,7 +160,7 @@ def compare_load_test():
 
     for i in list_host:
         file_path = os.getenv('RESULT_JSON_FILE', f'result_load_test_{i}.json')
-        rename_path = os.getenv('RESULT_JSON_FILE', f'result_load_test_{i}.json')
+        rename_path = os.getenv('RESULT_JSON_FILE', f'result_load_test3_{i}.json')
 
         # print(f"---------------load_test_{i}---------------")
         # total, total_delta_trace, total_median_delta_trace, total_delta_mri, total_median_delta_mri = write_compare_result(file_path)

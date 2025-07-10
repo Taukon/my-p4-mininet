@@ -1,3 +1,4 @@
+import os
 from mininet.net import Mininet
 import json
 
@@ -88,6 +89,10 @@ def load_switch_ip_list(file_path: str) -> dict:
 
 def is_exist_trace_or_mri(src_idx, is_mri, file_path):
     src_sw = f"s{src_idx}"
+
+    if os.path.exists(file_path) is False:
+        print(f"{file_path} is not found")
+        return False
 
     with open(file_path, mode="rt", encoding="utf-8") as fr:
         result = json.load(fr)

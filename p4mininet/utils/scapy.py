@@ -30,10 +30,15 @@ class SwitchTrace(Packet):
 
 class MRI(Packet):
    fields_desc = [ ShortField("count", 0),
-                   PacketListField("swtraces",
-                                   [],
-                                   SwitchTrace,
-                                   count_from=lambda pkt:(pkt.count*1))]
+                    ByteField("update_timestamp_count", 0),
+                    BitField("outgoing_timestamp_src", 0, 48),
+                    BitField("incoming_timestamp_dst", 0, 48),
+                    BitField("outgoing_timestamp_dst", 0, 48),
+                    BitField("incoming_timestamp_src", 0, 48),
+                    PacketListField("swtraces", 
+                                    [],
+                                    SwitchTrace,
+                                    count_from=lambda pkt:(pkt.count*1))]
 
 
 def get_segment_list_from_pkt_reverse(swtraces):
@@ -82,10 +87,11 @@ def send_srv6_pkt(iface, dst_mac, dst_addr, segment_list, packet, nh):
     # ipv6_header_inside.src = src_addr # src ipv6 inner (reflector's addr)
     ipv6_header_inside.dst = dst_addr # dst ipv6 inner (sender's addr)
 
-    pkt = (ether_header / ipv6_header / srv6_header / ipv6_header_inside / packet)
+    # pkt = (ether_header / ipv6_header / srv6_header / ipv6_header_inside / packet / struct.pack('!d', time.time()))
 
     # pkt.show2()
-    s.send(pkt)
+    # s.send(pkt)
+    s.send(ether_header / ipv6_header / srv6_header / ipv6_header_inside / packet / struct.pack('!d', time.time()))
 
 
 # def send_srv6_udp_pkt(iface, dst_mac, dst_addr, segment_list, udp_packet: UDP):
@@ -123,8 +129,7 @@ def send_mri_pkt(iface, dst_mac, dst_addr):
     s = conf.L2socket(iface=iface)
     pkt = Ether(src=get_if_hwaddr(iface), dst=dst_mac) / \
             IPv6(dst=dst_addr, nh=INT_PROTOCOL) / \
-                MRI(count=0, swtraces=[]) / \
-                    struct.pack('!d', time.time())
+                MRI(count=0, swtraces=[])
 
     # pkt.show2()
     s.send(pkt)
@@ -137,8 +142,7 @@ def send_trace_pkt(iface, dst_mac, dst_addr):
     s = conf.L2socket(iface=iface)
     pkt = Ether(src=get_if_hwaddr(iface), dst=dst_mac) / \
         IPv6(dst=dst_addr, nh=TRACE_PROTOCOL) / \
-            MRI(count=0, swtraces=[]) / \
-                struct.pack('!d', time.time())
+            MRI(count=0, swtraces=[])
     
     # pkt.show2()
     s.send(pkt)
@@ -146,33 +150,64 @@ def send_trace_pkt(iface, dst_mac, dst_addr):
     print (f"TRACE Packet Send Time: {time.time()} | dst_addr: {dst_addr}")
     # exit(0)
 
-# def reflect_swtraces_pkt(iface, receive_packet, timestamp):
-    
-#     dst_mac = receive_packet[Ether].src
-#     dst_addr = receive_packet[IPv6].src
-#     segment_list = get_segment_list_from_pkt(receive_packet[MRI].swtraces)
 
-#     udp_header = UDP(dport=RT_ACK_PORT, sport=55555)
-#     mri_packet =MRI(count=receive_packet[MRI].count, swtraces=receive_packet[MRI].swtraces)
-#     # timestamp = struct.unpack('!d', receive_packet[Raw].load)[0]
-
-#     udp_packet = udp_header / mri_packet / timestamp
-
-#     send_srv6_udp_pkt(iface, dst_mac, dst_addr, segment_list, udp_packet)
-# -----------------
-def reflect_swtraces_pkt(iface, receive_packet, timestamp):
+def reflect_swtraces_pkt(iface, receive_packet):
     
     dst_mac = receive_packet[Ether].src
     dst_addr = receive_packet[IPv6].src
     segment_list = get_segment_list_from_pkt(receive_packet[MRI].swtraces)
 
-    mri_packet = MRI(count=receive_packet[MRI].count, swtraces=receive_packet[MRI].swtraces)
-    # timestamp_packet = struct.unpack('!d', receive_packet[Raw].load)[0]
-    timestamp_packet = struct.pack('!d', timestamp)
+    mri_packet = MRI(count=receive_packet[MRI].count, 
+        update_timestamp_count=receive_packet[MRI].update_timestamp_count,
+        outgoing_timestamp_src=receive_packet[MRI].outgoing_timestamp_src,
+        incoming_timestamp_dst=receive_packet[MRI].incoming_timestamp_dst,
+        outgoing_timestamp_dst=receive_packet[MRI].outgoing_timestamp_dst,
+        incoming_timestamp_src=receive_packet[MRI].incoming_timestamp_src,
+        swtraces=receive_packet[MRI].swtraces
+        )
 
-    packet = mri_packet / timestamp_packet
+    # send_srv6_pkt(iface, dst_mac, dst_addr, segment_list, mri_packet, REFLECT_SWTRACES_PROTOCOL)
 
-    send_srv6_pkt(iface, dst_mac, dst_addr, segment_list, packet, REFLECT_SWTRACES_PROTOCOL)
+    s = conf.L2socket(iface=iface)
+    ether_header = Ether(src=get_if_hwaddr(iface), dst=dst_mac)
+    s.send(ether_header / IPv6(nh=REFLECT_SWTRACES_PROTOCOL, dst=dst_addr, src=receive_packet[IPv6].dst) / mri_packet)
+
+
+def reflect_swtraces_timestamp_pkt(iface, receive_packet, timestamp):
+    
+    dst_mac = receive_packet[Ether].src
+    dst_addr = receive_packet[IPv6].src
+    segment_list = get_segment_list_from_pkt(receive_packet[MRI].swtraces)
+
+    mri_packet = MRI(count=receive_packet[MRI].count, 
+        update_timestamp_count=receive_packet[MRI].update_timestamp_count,
+        outgoing_timestamp=receive_packet[MRI].outgoing_timestamp,
+        incoming_timestamp=receive_packet[MRI].incoming_timestamp,
+        swtraces=receive_packet[MRI].swtraces
+        )
+
+
+    s = conf.L2socket(iface=iface)
+
+    ether_header = Ether(src=get_if_hwaddr(iface), dst=dst_mac)
+
+    # ipv6_header = IPv6(dst=dst_addr, nh=INT_PROTOCOL)
+
+    ipv6_header = IPv6(nh=43)
+    # ipv6_header.src = src_addr
+    ipv6_header.dst = segment_list[-1] # last list's segment
+
+    # srv6 header added
+    srv6_header = IPv6ExtHdrSegmentRouting()
+    srv6_header.addresses = segment_list  # no necessary to reverse for reflector
+    srv6_header.segleft = len(segment_list) - 1 # -1 because start from 0
+    srv6_header.lastentry = len(segment_list) - 1
+
+    ipv6_header_inside = IPv6(nh=REFLECT_SWTRACES_PROTOCOL)
+    ipv6_header_inside.dst = dst_addr # dst ipv6 inner (sender's addr)
+
+    # pkt.show2()
+    s.send(ether_header / ipv6_header / srv6_header / ipv6_header_inside / mri_packet / struct.pack('!d', timestamp) / struct.pack('!d', time.time()))
 
 
 def send_req_encap_srv6(iface, dst_mac, dst_addr, count, swtraces, is_srv6):

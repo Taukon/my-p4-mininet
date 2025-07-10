@@ -556,6 +556,33 @@ def ping_load_test(net: Mininet, line=""):
     subprocess.Popen(command, shell=True, stdout=sys.stdout, stderr=sys.stderr).communicate()
 
 
+# line = "-c 32"
+def timestamp_load_test(net: Mininet, line=""):
+
+    dst_switches = -1
+    for i in range(len(net.switches)):
+        if net.switches[i].name[0] == "s":
+            dst_switches += 1
+    
+    command = f"python3 ping_ssh.py -d {dst_switches} {line}"
+    subprocess.Popen(command, shell=True, stdout=sys.stdout, stderr=sys.stderr).communicate()
+
+    # dst_switches = -1
+    # for i in range(len(net.switches)):
+    #     if net.switches[i].name[0] == "s":
+    #         dst_switches += 1
+    # output(f"dst_switches: {dst_switches} | line: {line}\n")
+
+    # for host in net.hosts:
+    #     if host.name == "h1":
+    #         command = f"python3 explore_test.py -s {dst_switches} {line}"
+    #         host.cmd(command)
+    #         output(f"Running command on {host.name}: {command}\n")
+
+    #         break
+    
+
+
 class P4CLI(CLI):
 
     def do_mtu(self, line):
@@ -597,4 +624,8 @@ class P4CLI(CLI):
     def do_pingload(self, line):
         "Ping test"
         ping_load_test(self.mn, line)
+
+    def do_timestamp(self, line):
+        "Timestamp test"
+        timestamp_load_test(self.mn, line)
         

@@ -8,7 +8,7 @@ def run_load_test(total_host, enable_auto):
     subprocess.run(f"python3 load_test_conf.py --h {total_host}", shell=True)
 
     os.chdir("..")
-    subprocess.run(f"python3 load-test-mininet.py --ssh{' --auto' if enable_auto else ''}", shell=True)
+    subprocess.run(f"echo ubuntunk | sudo -S python3 load-test-mininet.py --ssh{' --auto' if enable_auto else ''}", shell=True)
 
     os.chdir("./p4mininet")
     subprocess.run("sudo python3 load_test_network.py", shell=True)
@@ -32,7 +32,8 @@ if __name__ == "__main__":
     if enable_auto:
         print("Running in automatic mode.")
 
-        list_host = [1, 5, 10, 15, 20, 25, 30]
+        # list_host = [1, 5, 10, 15, 20, 25, 30]
+        list_host = [5]
         for i in list_host:
             print(f"Running load test for host {i}")
             run_load_test(i, enable_auto)

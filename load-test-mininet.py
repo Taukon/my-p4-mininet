@@ -134,8 +134,9 @@ outputstring_4c='''
 
 if enable_auto:
     outputstring_4c='''
-    # cli.listen_mri_trace(net)
-    cli.ping_load_test(net, "-c 32")
+    cli.listen_mri_trace(net)
+    # cli.ping_load_test(net, "-c 32")
+    cli.timestamp_load_test(net, "-c 32")
 '''
 
 outputstring_4d='''

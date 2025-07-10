@@ -61,22 +61,18 @@ bind_layers(IPv6, MRI, nh=TRACE_PROTOCOL)
 
 
 def receive_swtraces(iface, pkt):
+    reflect_swtraces_pkt(iface, pkt)
 
-    print("got a trace packet")
+    # print("got a trace packet")
     # pkt.show2()
 
     sys.stdout.flush()
-    timestamp = struct.unpack('!d', pkt[Raw].load)[0]
-    # delta = time.time() - timestamp
-    # print(f"delta: {delta}")
 
     # remove seg6 encap
     dst_addr = pkt[IPv6].src
     if check_seg6_encap(dst_addr):
         print(f"----- Delete Encap -----")
         del_seg6_route(dst_addr)
-
-    reflect_swtraces_pkt(iface, pkt, timestamp)
 
     print(f"----- swtraces len: {len(pkt[MRI].swtraces)} | count: {pkt[MRI].count} |  dst: {pkt[Ether].dst} | src: {pkt[Ether].src}")
 
@@ -110,37 +106,6 @@ def receive_req_encap_srv6_pkt(iface, req_encap_packet):
         send_ack_encap_srv6_pkt(iface, dst_mac, dst_addr, count, swtraces, False)
 
 
-def reflect_timeatamp(pkt):
-    global total_delta
-    global delta_count
-    global pre_timestampID
-
-    # print("got a timestamp packet")
-    # pkt.show2()
-    # sys.stdout.flush()
-
-    timestamp = struct.unpack('!d', pkt[Raw].load[8:])[0]
-    delta = time.time() - timestamp
-    timestampID = struct.unpack('!d', pkt[Raw].load[:8])[0]
-
-    if 'total_delta' not in globals() or 'delta_count' not in globals():
-        total_delta = 0
-        delta_count = 0
-
-    if 'pre_timestampID' not in globals() \
-        or pre_timestampID != timestampID:
-        pre_timestampID = timestampID
-        total_delta = 0
-        delta_count = 0
-    
-    total_delta += delta
-    delta_count += 1
-
-    # print(f"----- TM id: {timestampID} | delta: {delta} | Average Delta: {total_delta / delta_count} | count: {delta_count} -----")
-
-    reflect_timestamp_pkt(pkt, timestampID, delta)
-
-
 def sniff_receive_swtraces(iface):
     print("receive_swtraces: sniffing on %s" % iface)
     sys.stdout.flush()
@@ -159,19 +124,10 @@ def sniff_req_encap_srv6(iface):
           iface = iface, prn = lambda x: receive_req_encap_srv6_pkt(iface, x))
 
 
-def sniff_reflect_timestamp(iface):
-    print("reflect_timestamp: sniffing on %s" % iface)
-    sys.stdout.flush()
-    sniff(filter=f"ip6 and dst host {get_ipv6()}" + \
-          f" and udp and port {RT_PORT}", \
-          iface = iface, prn = lambda x: reflect_timeatamp(x))
-
-
 if __name__ == '__main__':
     iface = get_defalt_ifname()
 
     Process(target=sniff_req_encap_srv6, args=(iface,)).start()
-    Process(target=sniff_reflect_timestamp, args=(iface,)).start()
     
     sniff_receive_swtraces(iface)
     
