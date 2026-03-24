@@ -7,8 +7,6 @@ const bit<16> TYPE_IPV6 = 0x86dd;
 
 const bit<8>  INT_PROTOCOL = 0xFD;
 const bit<8>  TRACE_PROTOCOL = 0xFE;
-const bit<8>  ICMP6_PROTOCOL = 0x3A;
-const bit<20>  INT_FLOWLABEL = 0xFFFFF;
 
 #define MAX_HOPS 16
 #define LOOP_CHECK_HOPS 9
@@ -61,13 +59,6 @@ header ipv6_t {
     bit<8> hop_limit;
     bit<128> src_addr;
     bit<128> dst_addr;
-}
-
-header icmpv6_t {
-    bit<8> type;
-    bit<8> code;
-    bit<16> checksum;
-    bit<32> messageBody;
 }
 
 header mri_t {
@@ -428,8 +419,6 @@ control MyIngress(inout headers hdr,
             return;
         }
 
-        mri_clone_no_action();
-
         // --------------------Multi-Hop Route Inspection--------------------
         if(hdr.mri.isValid() && hdr.ipv6.isValid() && hdr.ipv6.next_hdr == INT_PROTOCOL){
             if(hdr.ipv6.hop_limit > 0){
@@ -447,29 +436,11 @@ control MyIngress(inout headers hdr,
 
             // if(meta.clone_mri_metadata.is_loop == 0 && hdr.mri.count < LOOP_CHECK_HOPS){
             if(meta.clone_mri_metadata.is_loop == 0 && meta.clone_mri_metadata.is_over == 0){
-                meta.clone_mri_metadata.is_clone = 1;
-            }else{
-                drop();
-                return;
-            }
-        }
-
-        // --------------------For ICMP Clone Cast--------------------
-        if(hdr.ipv6.isValid() && hdr.ipv6.next_hdr == ICMP6_PROTOCOL && hdr.ipv6.flow_label == INT_FLOWLABEL){
-            if(hdr.ipv6.hop_limit > 0){
-                hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 1;
-            }else{
-                drop();
+                mri_clone_table.apply(); 
                 return;
             }
 
-            meta.clone_mri_metadata.is_loop = 0;
-            meta.clone_mri_metadata.is_over = 0;
-            meta.clone_mri_metadata.is_clone = 1;
-        }
-
-        if(meta.clone_mri_metadata.is_clone == 1){
-            mri_clone_table.apply();
+            drop();
             return;
         }
 
@@ -502,7 +473,6 @@ control MyEgress(inout headers hdr,
 
     action src_mac_rewrite(macAddr_t srcAddr) {
         hdr.ethernet.srcAddr = srcAddr;
-        hdr.ethernet.dstAddr = 0xFFFFFFFFFFFF;
     }
 
     table mri_mac_table {
@@ -579,12 +549,9 @@ control MyEgress(inout headers hdr,
                     hdr.swtraces[0].swid = meta.swtrace_metadata.swid;
                 }
 
-            }
-
-            if ((hdr.mri.isValid() && meta.clone_mri_metadata.is_clone == 1) ||
-                    (hdr.ipv6.isValid() && hdr.ipv6.next_hdr == ICMP6_PROTOCOL && meta.clone_mri_metadata.is_clone == 1)
-                ){
-                mri_mac_table.apply();
+                if(meta.clone_mri_metadata.is_clone == 1){
+                    mri_mac_table.apply();
+                }
             }
 
             if (hdr.ipv4.isValid()) {
